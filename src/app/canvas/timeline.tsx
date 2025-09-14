@@ -13,7 +13,6 @@ function Timeline() {
 
   // const step = SLIDER_MAX / TIMELINE_DURATION / FRAMES_PER_SECOND;
   // const g = `grid-cols-${TIMELINE_DURATION}`;
-  console.log({ keyFrames });
 
   return (
     <div className=" h-full text-white relative">
@@ -66,7 +65,7 @@ function Timeline() {
             <div
               key={e.id}
               className="size-2 bg-white rotate-45 absolute top-0 translate-x-[-50%]"
-              style={{ left: `${e.timeStamp * 100}%` }}
+              style={{ left: `${(e.timeStamp / 10) * 100}%` }}
             ></div>
           ))}
         </div>

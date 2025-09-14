@@ -19,7 +19,7 @@ export interface TimeLineStore {
   timeline: gsap.core.Timeline;
   nodes: Record<string, { element: Konva.Node; keyframes: KeyFrame[] }>;
   nodesIndex: string[];
-  addKeyFrame: (elementId: string, keyFrame: KeyFrame) => void;
+  addKeyFrame: (elementId: string, keyFrame: Omit<KeyFrame, "id">) => void;
   addNode: (node: Konva.Node, id: string) => void;
   removeNode: (id: string) => void;
   play: () => void;

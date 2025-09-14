@@ -226,7 +226,6 @@ var KonvaPlugin = {
 
   //called when the tween renders for the first time. This is where initial values should be recorded and any setup routines should run.
   init: function (target, value, tween) {
-    console.log("hello");
     var p, val, gp, sp, bezierPlugin, directionalRotationPlugin;
     this._overwriteProps = _convertProps(target, value); //allow users to pass in shorter names like "x" instead of "setX" and "rotationDeg" instead of "setRotationDeg"
     this._target = target;

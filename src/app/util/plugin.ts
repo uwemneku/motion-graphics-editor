@@ -18,6 +18,7 @@ const KonvaPlugin: GSAPPlugin = {
     for (const p in values) {
       const start = target[p]();
       const end = values[p];
+
       let change: number | object = end - start;
       if (p === "fill") {
         const startColor = extractColorType(start);
@@ -29,6 +30,7 @@ const KonvaPlugin: GSAPPlugin = {
           a: endColor.a - startColor.a,
         };
       }
+      console.log({ p, start, end, change });
       this._props.push({ prop: p, start, end, change });
     }
 
@@ -37,6 +39,7 @@ const KonvaPlugin: GSAPPlugin = {
   },
   render(ratio, data) {
     const t = data._target;
+
     data._props.forEach((obj) => {
       if (obj?.prop === "fill") {
         const startColor = extractColorType(obj.start);
@@ -44,12 +47,9 @@ const KonvaPlugin: GSAPPlugin = {
         const g = startColor.g + obj.change.g * ratio;
         const b = startColor.b + obj.change.b * ratio;
         const a = startColor.a + obj.change.a * ratio;
-        console.log(`rgba(${r},${g},${b},${a})`, { obj });
-
         t[obj.prop](`rgba(${r},${g},${b},${a})`);
         return;
       }
-
       t[obj.prop](obj.start + obj.change * ratio);
     });
 

@@ -1,11 +1,19 @@
 import gsap from "gsap";
+import { GSDevTools } from "gsap/all";
 import { produce, type WritableDraft } from "immer";
 import { create } from "zustand";
 import type { KeyFrame, TimeLineStore } from "../../types";
 import { insertKeyFrameIntoElementTimeline } from "../util/timeline";
 
+gsap.registerPlugin(GSDevTools);
 const useTimeLine = create<TimeLineStore>((set, get) => {
-  const timeline = gsap.timeline({ paused: true });
+  const timeline = gsap.timeline({
+    paused: true,
+    id: "main-timeline",
+    smoothChildTiming: false,
+  });
+
+  GSDevTools.create({ animation: timeline });
 
   const updateDraft = (
     callback: (draft: WritableDraft<TimeLineStore>) => void
@@ -16,47 +24,47 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
       })
     );
   };
-
-  const createTimeLine = () => {
+  const addTimeline = (
+    elementId: string,
+    curIndex: number,
+    keyFrame: KeyFrame
+  ) => {
     const timeline = get().timeline;
-    timeline.clear();
-    timeline.pause(0);
-    const node = get()?.nodes?.["circle"]?.element;
 
-    const t = get()?.keyFrames?.reduce((acc, cur, curIndex, arr) => {
+    const node = get()?.nodes?.[elementId]?.element;
+
+    if (!node) return;
+    const allKeyFrames = get().keyFrames;
+    const isFirstKeyFrame = allKeyFrames.length === 1;
+    if (isFirstKeyFrame) {
+      timeline.set(node, { konva: keyFrame.animatable, duration: 0 }, 0);
+      return;
+    }
+    const prevKeyFrame = allKeyFrames[curIndex - 1];
+    if (prevKeyFrame) {
+      timeline.pause(prevKeyFrame?.timeStamp || 0);
+      const t = timeline.getById(`${keyFrame.timeStamp}`);
+      if (t) timeline.remove(t); // remove existing tween with same id
       const keyFrameDuration =
-        (cur?.timeStamp - (arr[curIndex - 1]?.timeStamp || 0)) * 10;
-      const isFirstIndex = curIndex === 0;
-      if (cur.animatable) {
-        const data = { ...acc, ...cur.animatable };
-        console.log({ data });
+        keyFrame?.timeStamp - (prevKeyFrame?.timeStamp || 0);
 
-        for (const p in { ...acc, ...cur.animatable }) {
-          const value = cur.animatable?.[p as keyof KeyFrame["animatable"]];
-          if (!value) {
-            delete cur.animatable?.[p as keyof KeyFrame["animatable"]];
-          }
-        }
-      }
-
-      if (isFirstIndex) {
-        timeline.set(node, { konva: cur?.animatable, duration: 0 });
-      }
-
-      timeline.to(node, {
-        konva: cur?.animatable,
-        duration: keyFrameDuration,
-        ease: "linear",
-        onComplete(...args) {
-          console.log("completed", { args });
+      timeline.to(
+        node,
+        {
+          konva: keyFrame.animatable,
+          duration: keyFrameDuration,
+          ease: "linear",
+          id: `${keyFrame.timeStamp}`,
         },
-      });
 
-      return cur?.animatable;
-    }, {});
+        prevKeyFrame?.timeStamp || 0
+      );
+      timeline.invalidate(); // to recalculate the timeline
 
-    return timeline;
+      console.log(timeline.getChildren());
+    }
   };
+
   return {
     timeline,
     keyFrames: [],
@@ -75,19 +83,18 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
       });
     },
     addKeyFrame(elementId, keyFrame) {
-      console.log({ keyFrame });
-
+      const id = crypto.randomUUID();
+      let curindex = 0;
       updateDraft((draft) => {
-        draft.keyFrames = insertKeyFrameIntoElementTimeline(
-          keyFrame,
+        const { insertIndex, keyframes } = insertKeyFrameIntoElementTimeline(
+          { ...keyFrame, id },
           draft.keyFrames || []
         );
+        draft.keyFrames = keyframes;
+        curindex = insertIndex;
       });
-      timeline.clear();
-      const node = get()?.nodes?.[elementId]?.element;
-
-      if (!node) return;
-      createTimeLine();
+      // createTimeLine();
+      addTimeline(elementId, curindex, { ...keyFrame, id });
     },
     play() {
       get()

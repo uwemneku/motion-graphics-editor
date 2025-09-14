@@ -13,7 +13,7 @@ export const insertKeyFrameIntoElementTimeline = (
     totalKeyFrames === 0 ||
     keyFrame?.timeStamp === firstKeyFrame?.timeStamp
   ) {
-    return [keyFrame];
+    return { keyframes: [keyFrame], insertIndex: 0 };
   }
 
   const trackPosition = keyFrame.timeStamp;
@@ -45,10 +45,12 @@ export const insertKeyFrameIntoElementTimeline = (
         break;
       }
     }
-    console.log({ insertIndex });
   }
 
-  return produce(allKeyFrames, (draft) => {
-    draft.splice(insertIndex, shouldReplace ? 1 : 0, keyFrame);
-  });
+  return {
+    keyframes: produce(allKeyFrames, (draft) => {
+      draft.splice(insertIndex, shouldReplace ? 1 : 0, keyFrame);
+    }),
+    insertIndex,
+  };
 };

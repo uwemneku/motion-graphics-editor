@@ -53,7 +53,7 @@ function Screen() {
   /* -------------------------------------------------------------------------- */
 
   return (
-    <div className="h-full bg-green-400" ref={containerRef}>
+    <div className="h-full bg-black" ref={containerRef}>
       <Stage
         onClick={handleStateSelector}
         width={size.width}
@@ -69,6 +69,12 @@ function Screen() {
             height={100}
             // fill="yellow"
             stroke="black"
+            // dragBoundFunc={function (pos) {
+            //   return {
+            //     x: this.x(),
+            //     y: pos.y,
+            //   };
+            // }}
             isClickable
             draggable
             onClick={(node) => {
@@ -84,25 +90,22 @@ function Screen() {
               }
             }}
             onTransformEnd={(e) => {
-              console.log({ e });
               const x = e.currentTarget?.x();
               const y = e?.currentTarget?.y();
               const scale = e?.currentTarget?.scale();
 
-              addKeyFrame("circle", {
-                animatable: {
-                  // x,
-                  // y,
-                  scaleX: scale?.x,
-                  scaleY: scale?.y,
-                  // fill: "rgba(0, 0, 139, 1)",
-                },
-                id: crypto.randomUUID(),
-                timeStamp: screenContext?.scrubPosition.current || 0,
-              });
+              // addKeyFrame("circle", {
+              //   animatable: {
+              //     // x,
+              //     // y,
+              //     scaleX: scale?.x,
+              //     scaleY: scale?.y,
+              //     // fill: "rgba(0, 0, 139, 1)",
+              //   },
+              //   timeStamp: screenContext?.scrubPosition.current || 0,
+              // });
             }}
             onDragEnd={(e) => {
-              console.log({ e });
               const x = e.currentTarget?.x();
               const y = e?.currentTarget?.y();
               const scale = e?.currentTarget?.scale();
@@ -113,8 +116,7 @@ function Screen() {
                   // scaleX: scale?.x,
                   // scaleY: scale?.y,
                 },
-                id: crypto.randomUUID(),
-                timeStamp: screenContext?.scrubPosition.current || 0,
+                timeStamp: (screenContext?.scrubPosition.current || 0) * 10,
               });
             }}
           />
