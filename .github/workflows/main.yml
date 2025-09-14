@@ -5,10 +5,6 @@ on:
   push:
     branches: [main]
 
-env:
-  ENVIRONMENT: "production"
-  BASE_URL: "./motion-graphics-editor"
-
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
@@ -47,11 +43,6 @@ jobs:
       - name: Install Dependencies
         run: |
           pnpm install
-
-      - name: Create Environment File
-        run: |
-          echo "BASE_URL=${{ env.BASE_URL }}" > .env
-          echo "ENVIRONMENT=${{ env.ENVIRONMENT }}" >> .env
 
       - name: Build Project
         run: |
