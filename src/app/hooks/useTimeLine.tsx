@@ -41,6 +41,7 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
       return;
     }
     const prevKeyFrame = allKeyFrames[curIndex - 1];
+    const nextKeyFrame = allKeyFrames[curIndex + 1];
     if (prevKeyFrame) {
       timeline.pause(prevKeyFrame?.timeStamp || 0);
       const t = timeline.getById(`${keyFrame.timeStamp}`);
@@ -59,7 +60,21 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
 
         prevKeyFrame?.timeStamp || 0
       );
+      if (nextKeyFrame) {
+        timeline.remove(timeline.getById(`${nextKeyFrame.timeStamp}`));
+        timeline.to(
+          node,
+          {
+            konva: nextKeyFrame.animatable,
+            duration: nextKeyFrame.timeStamp - keyFrame.timeStamp,
+            ease: "linear",
+            id: `${nextKeyFrame.timeStamp}`,
+          },
+          keyFrame.timeStamp
+        );
+      }
       timeline.invalidate(); // to recalculate the timeline
+      timeline.progress(keyFrame.timeStamp / timeline.duration());
 
       console.log(timeline.getChildren());
     }
