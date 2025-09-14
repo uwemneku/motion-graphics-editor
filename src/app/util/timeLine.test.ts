@@ -5,7 +5,10 @@ import { insertKeyFrameIntoElementTimeline } from "./timeline";
 describe("Adding element keyframe", () => {
   const initKeyFrame: KeyFrame[] = [];
   const keyFrame: KeyFrame = { timeStamp: 5, animatable: {}, id: "" };
-  const res = insertKeyFrameIntoElementTimeline(keyFrame, initKeyFrame);
+  const res = insertKeyFrameIntoElementTimeline(
+    keyFrame,
+    initKeyFrame
+  ).keyframes;
 
   test("Should add keyframe", () => {
     expect(res.length).toBe(1);
@@ -16,9 +19,9 @@ describe("Adding element keyframe", () => {
 
   test("Should replace the same time Stamp", () => {
     const f = insertKeyFrameIntoElementTimeline(
-      { timeStamp: 5, animatable: {} },
+      { timeStamp: 5, animatable: {}, id: "" },
       res
-    );
+    ).keyframes;
 
     expect(f.length).toBe(1);
     expect(f[0]?.timeStamp).toEqual(5);
@@ -32,16 +35,19 @@ describe("Adding element keyframe", () => {
       animatable: {},
       id: "",
     };
-    const currentKeyFrames: Omit<KeyFrame, "id">[] = [
-      { timeStamp: 5, animatable: {} },
-      { timeStamp: 7, animatable: {} },
+    const currentKeyFrames: KeyFrame[] = [
+      { timeStamp: 5, animatable: {}, id: "" },
+      { timeStamp: 7, animatable: {}, id: "" },
     ];
-    const _ = insertKeyFrameIntoElementTimeline(newKeyframe, currentKeyFrames);
+    const _ = insertKeyFrameIntoElementTimeline(
+      newKeyframe,
+      currentKeyFrames
+    ).keyframes;
 
     expect(_.length).toBe(3);
     expect(_[2]?.timeStamp).toBe(10);
 
-    const __ = insertKeyFrameIntoElementTimeline(newKeyframe, _);
+    const __ = insertKeyFrameIntoElementTimeline(newKeyframe, _).keyframes;
 
     expect(__.length).toBe(3);
   });
@@ -53,24 +59,27 @@ describe("Adding element keyframe", () => {
       animatable: {},
       id: "",
     };
-    const currentKeyFrames: Omit<KeyFrame, "id">[] = [
-      { timeStamp: 5, animatable: {} },
-      { timeStamp: 7, animatable: {} },
+    const currentKeyFrames: KeyFrame[] = [
+      { timeStamp: 5, animatable: {}, id: "" },
+      { timeStamp: 7, animatable: {}, id: "" },
     ];
-    const _ = insertKeyFrameIntoElementTimeline(newKeyframe, currentKeyFrames);
+    const _ = insertKeyFrameIntoElementTimeline(
+      newKeyframe,
+      currentKeyFrames
+    ).keyframes;
 
     expect(_.length).toBe(3);
     expect(_[1]?.timeStamp).toBe(6);
 
-    const __ = insertKeyFrameIntoElementTimeline(newKeyframe, _);
+    const __ = insertKeyFrameIntoElementTimeline(newKeyframe, _).keyframes;
 
     expect(__.length).toBe(3);
 
     // Add the last keyframe from current keyframes
     const ___ = insertKeyFrameIntoElementTimeline(
-      { timeStamp: 7, animatable: {} },
+      { timeStamp: 7, animatable: {}, id: "" },
       __
-    );
+    ).keyframes;
     expect(___.length).toBe(3);
   });
 });

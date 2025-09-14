@@ -4,23 +4,28 @@ import Konva from "konva";
 const KonvaPlugin: GSAPPlugin = {
   name: "konva",
   init(
-    target,
-    values: object,
-    _tween: gsap.core.Tween,
-    _index: number,
-    _targets: object[]
+    target: object,
+
+    values: Record<string, unknown>
+    // _tween: gsap.core.Tween,
+    // _index: number,
+    // _targets: object[]
   ) {
     if (!(target instanceof Konva.Node)) return false; // only handle Konva nodes
 
-    this._target = target;
+    this._target = target as unknown as Konva.Node;
     this._props = [];
 
     for (const p in values) {
-      const start = target[p]();
-      const end = values[p];
+      const _p = p as keyof Konva.Node;
+      const start = target[_p]();
+      const end = values[p] as number | string;
+      let change: number | object = 0;
 
-      let change: number | object = end - start;
-      if (p === "fill") {
+      if (typeof end === "number") {
+        change = end - start;
+      }
+      if (typeof end === "string" && p === "fill") {
         const startColor = extractColorType(start);
         const endColor = extractColorType(end);
         change = {
@@ -30,7 +35,7 @@ const KonvaPlugin: GSAPPlugin = {
           a: endColor.a - startColor.a,
         };
       }
-      console.log({ p, start, end, change });
+      // @ts-expect-error Need to check type definition for custom plugin
       this._props.push({ prop: p, start, end, change });
     }
 
@@ -39,18 +44,34 @@ const KonvaPlugin: GSAPPlugin = {
   },
   render(ratio, data) {
     const t = data._target;
+    const _data = data as unknown as {
+      _props: Array<{
+        prop: string;
+        start: number | string;
+        change: number | object;
+      }>;
+      _layer: Konva.Layer | null;
+    };
 
-    data._props.forEach((obj) => {
+    _data._props.forEach((obj) => {
       if (obj?.prop === "fill") {
-        const startColor = extractColorType(obj.start);
-        const r = startColor.r + obj.change.r * ratio;
-        const g = startColor.g + obj.change.g * ratio;
-        const b = startColor.b + obj.change.b * ratio;
-        const a = startColor.a + obj.change.a * ratio;
+        const startColor = extractColorType(obj.start?.toString());
+        const _change = obj.change as {
+          r: number;
+          g: number;
+          b: number;
+          a: number;
+        };
+        const r = startColor.r + _change.r * ratio;
+        const g = startColor.g + _change.g * ratio;
+        const b = startColor.b + _change.b * ratio;
+        const a = startColor.a + _change.a * ratio;
         t[obj.prop](`rgba(${r},${g},${b},${a})`);
         return;
       }
-      t[obj.prop](obj.start + obj.change * ratio);
+      const _start = obj.start as number;
+      const _change = obj.change as number;
+      t[obj.prop](_start + _change * ratio);
     });
 
     if (data._layer) {
