@@ -4,6 +4,8 @@ import { ScreenContext } from "./context";
 
 export default function ScreenContextProvider({ children }: PropsWithChildren) {
   const transformerRef = useRef<Konva.Transformer>(null);
+  const scrubPosition = useRef(0);
+
   function saveTransformNode(node: Konva.Transformer) {
     transformerRef.current = node;
   }
@@ -12,6 +14,9 @@ export default function ScreenContextProvider({ children }: PropsWithChildren) {
     const _nodes = nodes;
     transformerRef?.current?.nodes(_nodes);
   };
+  const setScrubPosition = (value: number) => {
+    scrubPosition.current = value;
+  };
 
   return (
     <ScreenContext.Provider
@@ -19,6 +24,8 @@ export default function ScreenContextProvider({ children }: PropsWithChildren) {
         attachTransformerToNode,
         saveTransformNode,
         transformNode: transformerRef,
+        scrubPosition,
+        setScrubPosition,
       }}
     >
       {children}

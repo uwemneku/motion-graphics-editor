@@ -8,6 +8,7 @@ import {
   Transformer,
   type KonvaNodeEvents,
 } from "react-konva";
+import { useScreenContext } from "../context/screenContext/context";
 import useTimeLine from "../hooks/useTimeLine";
 
 function Screen() {
@@ -15,9 +16,10 @@ function Screen() {
   const containerRef = useRef<HTMLDivElement>(null);
   const circleRef = useRef<Konva.Circle>(null);
   const transforRef = useRef<Konva.Transformer>(null);
+  const screenContext = useScreenContext();
 
   const addKeyFrame = useTimeLine((e) => e.addKeyFrame);
-  const addNode = useTimeLine((e) => e.addKonvaNode);
+  const addNode = useTimeLine((e) => e.addNode);
 
   const handleStateSelector: KonvaNodeEvents["onClick"] = (e) => {
     const isClickable = e?.target?.getAttr<boolean>("isClickable");
@@ -65,7 +67,7 @@ function Screen() {
             y={50}
             width={100}
             height={100}
-            fill="yellow"
+            // fill="yellow"
             stroke="black"
             isClickable
             draggable
@@ -76,8 +78,9 @@ function Screen() {
             }}
             ref={(node) => {
               if (node) {
+                node?.fill("rgba(0, 255, 0, 0.5)");
                 circleRef.current = node;
-                addNode(node);
+                addNode(node, "circle");
               }
             }}
             onTransformEnd={(e) => {
@@ -85,16 +88,17 @@ function Screen() {
               const x = e.currentTarget?.x();
               const y = e?.currentTarget?.y();
               const scale = e?.currentTarget?.scale();
-              console.log({ x, y, scale });
-              addKeyFrame({
+
+              addKeyFrame("circle", {
                 animatable: {
-                  x,
-                  y,
+                  // x,
+                  // y,
                   scaleX: scale?.x,
                   scaleY: scale?.y,
+                  // fill: "rgba(0, 0, 139, 1)",
                 },
                 id: crypto.randomUUID(),
-                nodeIndex: 0,
+                timeStamp: screenContext?.scrubPosition.current || 0,
               });
             }}
             onDragEnd={(e) => {
@@ -102,16 +106,15 @@ function Screen() {
               const x = e.currentTarget?.x();
               const y = e?.currentTarget?.y();
               const scale = e?.currentTarget?.scale();
-              console.log({ x, y, scale });
-              addKeyFrame({
+              addKeyFrame("circle", {
                 animatable: {
                   x,
                   y,
-                  scaleX: scale?.x,
-                  scaleY: scale?.y,
+                  // scaleX: scale?.x,
+                  // scaleY: scale?.y,
                 },
                 id: crypto.randomUUID(),
-                nodeIndex: 0,
+                timeStamp: screenContext?.scrubPosition.current || 0,
               });
             }}
           />

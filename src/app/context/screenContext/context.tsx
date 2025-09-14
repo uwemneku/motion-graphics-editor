@@ -5,6 +5,8 @@ interface IScreenContext {
   transformNode: RefObject<Konva.Transformer | null>;
   saveTransformNode: (node: Konva.Transformer) => void;
   attachTransformerToNode(...nodes: Konva.Node[]): void;
+  scrubPosition: RefObject<number>;
+  setScrubPosition: (value: number) => void;
 }
 export const ScreenContext = createContext<IScreenContext | null>(null);
 
