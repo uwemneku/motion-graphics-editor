@@ -1,6 +1,13 @@
 # Notes
 
 <hr />
+
+16/09/2024
+
+- Added support for importing images
+- Updated canvas design
+<img src="./docs/assets/ezgif-2e8bcf8acdc3cd.gif" alt="">
+
 14/09/2024
 
 - Switched from recreating timeline for every keyframe to adjusting the timeline dynamically. This caused a bug where after the second keyframe, gsap would jump to the next keyframe without any animation
