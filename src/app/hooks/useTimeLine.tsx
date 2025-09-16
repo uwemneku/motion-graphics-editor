@@ -16,34 +16,36 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
   GSDevTools.create({ animation: timeline });
 
   const updateDraft = (
-    callback: (draft: WritableDraft<TimeLineStore>) => void
+    callback: (draft: WritableDraft<TimeLineStore>) => void,
   ) => {
     set(
       produce<TimeLineStore>((draft) => {
         callback(draft);
-      })
+      }),
     );
   };
   const addTimeline = (
     elementId: string,
     curIndex: number,
-    keyFrame: KeyFrame
+    keyFrame: KeyFrame,
   ) => {
     const timeline = get().timeline;
-
-    const node = get()?.nodes?.[elementId]?.element;
+    const nodeData = get().nodes[elementId];
+    const node = nodeData?.element;
 
     if (!node) return;
-    const allKeyFrames = get().keyFrames;
+    const allKeyFrames = nodeData?.keyframes || [];
     const isFirstKeyFrame = allKeyFrames.length === 1;
     if (isFirstKeyFrame) {
       timeline.set(node, { konva: keyFrame.animatable, duration: 0 }, 0);
+      timeline.invalidate(); // to recalculate the timeline
       return;
     }
     const prevKeyFrame = allKeyFrames[curIndex - 1];
+    const nextKeyFrame = allKeyFrames[curIndex + 1];
     if (prevKeyFrame) {
       timeline.pause(prevKeyFrame?.timeStamp || 0);
-      const t = timeline.getById(`${keyFrame.timeStamp}`);
+      const t = timeline.getById(`${keyFrame.timeStamp}${elementId}`);
       if (t) timeline.remove(t); // remove existing tween with same id
       const keyFrameDuration =
         keyFrame?.timeStamp - (prevKeyFrame?.timeStamp || 0);
@@ -54,15 +56,34 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
           konva: keyFrame.animatable,
           duration: keyFrameDuration,
           ease: "linear",
-          id: `${keyFrame.timeStamp}`,
+          id: `${keyFrame.timeStamp}${elementId}`,
         },
 
-        prevKeyFrame?.timeStamp || 0
+        prevKeyFrame?.timeStamp || 0,
       );
-      timeline.invalidate(); // to recalculate the timeline
+      // timeline.invalidate(); // to recalculate the timeline
 
-      console.log(timeline.getChildren());
+      if (nextKeyFrame) {
+        const t = timeline.getById(`${nextKeyFrame.timeStamp}${elementId}`);
+        console.log({ next: t });
+
+        if (t) timeline.remove(t);
+        timeline.to(
+          node,
+          {
+            konva: nextKeyFrame.animatable,
+            duration: nextKeyFrame.timeStamp - keyFrame.timeStamp,
+            ease: "linear",
+            id: `${nextKeyFrame.timeStamp}${elementId}`,
+          },
+          keyFrame.timeStamp,
+        );
+      }
+      timeline.invalidate(); // to recalculate the timeline
+      timeline.progress(keyFrame.timeStamp / timeline.duration());
     }
+    // log all tweens for this id
+    console.log(timeline.getTweensOf(node));
   };
 
   return {
@@ -70,10 +91,27 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     keyFrames: [],
     nodesIndex: [],
     nodes: {},
+    createNode(...args) {
+      updateDraft((draft) => {
+        const id = crypto.randomUUID();
+        draft.nodesIndex.push(id);
+        draft.nodes[id] = {
+          type: args[0],
+          keyframes: [],
+          element: undefined,
+          data: args[1],
+        };
+      });
+    },
     addNode(node, id) {
       updateDraft((draft) => {
-        draft.nodesIndex.push(id);
-        draft.nodes[id] = { element: node, keyframes: [] };
+        if (!draft.nodes[id]) return;
+        draft.nodes[id].element = node;
+      });
+    },
+    selectKeyFrame(keyFrame) {
+      updateDraft((draft) => {
+        draft.selectedKeyFrame = keyFrame;
       });
     },
     removeNode(id) {
@@ -83,18 +121,18 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
       });
     },
     addKeyFrame(elementId, keyFrame) {
-      const id = crypto.randomUUID();
+      const keyframeId = crypto.randomUUID();
       let curindex = 0;
       updateDraft((draft) => {
+        if (!draft.nodes[elementId]) return;
         const { insertIndex, keyframes } = insertKeyFrameIntoElementTimeline(
-          { ...keyFrame, id },
-          draft.keyFrames || []
+          { ...keyFrame, id: keyframeId },
+          draft.nodes?.[elementId].keyframes || [],
         );
-        draft.keyFrames = keyframes;
+        draft.nodes[elementId].keyframes = keyframes;
         curindex = insertIndex;
       });
-      // createTimeLine();
-      addTimeline(elementId, curindex, { ...keyFrame, id });
+      addTimeline(elementId, curindex, { ...keyFrame, id: keyframeId });
     },
     play() {
       get()
