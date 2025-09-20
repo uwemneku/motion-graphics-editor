@@ -23,8 +23,11 @@ export interface TimeLineStore {
   nodesIndex: string[];
   addKeyFrame: (elementId: string, keyFrame: Omit<KeyFrame, "id">) => void;
 
+  selectedNodeId?: string;
+  selectNode: (id: string | undefined) => void;
   addNode: (node: Konva.Node, id: string) => void;
   createNode: (...args: CreateNodeArgs) => void;
+  deleteNode: (id: string) => void;
   removeNode: (id: string) => void;
   play: () => void;
 }

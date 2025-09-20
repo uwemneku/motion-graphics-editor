@@ -18,11 +18,14 @@ function AppShapes(props: Props) {
   const shapeId = props.id;
 
   const sharedProps: NodeConfig = {
+    id: shapeId,
+    //
     x: 50,
     y: 50,
     width: 100,
     height: 100,
     stroke: "black",
+    strokeWidth: 1,
     fill: shapeDetails?.type === "image" ? undefined : "rgba(255, 255, 0, 1)",
     //
     draggable: true,
@@ -31,11 +34,12 @@ function AppShapes(props: Props) {
     onClick,
     onDragEnd: handleDragEnd,
     ref: handleNodeRef,
+    onTransformEnd: handleTransformEnd,
   };
 
   function onClick(node: KonvaEventObject<MouseEvent, Node<NodeConfig>>) {
     if (node) {
-      props.transformerRef.current?.nodes([node.currentTarget!]);
+      //   props.transformerRef.current?.nodes([node.currentTarget!]);
     }
   }
 
@@ -58,6 +62,17 @@ function AppShapes(props: Props) {
     });
   }
 
+  function handleTransformEnd(e: KonvaEventObject<Event, Node<NodeConfig>>) {
+    const scale = e?.target?.scale();
+    const width = e?.target?.width() * scale.x;
+    const height = e?.target?.height() * scale.y;
+    e.target.setAttrs({
+      width,
+      height,
+      scale: { x: 1, y: 1 },
+    });
+  }
+
   switch (shapeDetails?.type) {
     case "circle":
       return <Circle {...sharedProps} />;
@@ -75,7 +90,19 @@ const URLImage = ({
   ...props
 }: { src: string } & Omit<ImageConfig, "image">) => {
   const [image] = useImage(src, "anonymous");
-  return <Image image={image} {...props} />;
+  return (
+    <Image
+      image={image}
+      {...props}
+      width={image?.width}
+      height={image?.height}
+      ref={(node) => {
+        const stage = node?.getStage();
+        node?.scale({ x: 0.5, y: 0.5 });
+        props.ref(node);
+      }}
+    />
+  );
 };
 
 export default AppShapes;

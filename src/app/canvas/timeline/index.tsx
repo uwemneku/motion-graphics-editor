@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { PiPlayBold } from "react-icons/pi";
 import { useScreenContext } from "../../context/screenContext/context";
 import useTimeLine from "../../hooks/useTimeLine";
 import KeyFrames from "./keyframes";
@@ -14,6 +15,9 @@ function Timeline() {
 
   return (
     <div className="relative h-full text-white">
+      <div onClick={play}>
+        <PiPlayBold />
+      </div>
       <div className="relative mx-4 h-full">
         <div
           ref={containerRef}
@@ -55,9 +59,7 @@ function Timeline() {
             />
           ))}
         </div>
-        <button onClick={play} className="p-2">
-          Play
-        </button>
+
         <div className="grid gap-2">
           {keyFrames.map((e) => (
             <KeyFrames key={e} id={e} />

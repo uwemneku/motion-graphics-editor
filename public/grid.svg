@@ -1,7 +1,8 @@
-<svg width="93" height="62" viewBox="0 0 93 62" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <line x1="43.9" y1="-2.18557e-08" x2="43.9" y2="62" stroke="black" />
-    <line x1="74.9" y1="-2.18557e-08" x2="74.9" y2="62" stroke="black" />
-    <line x1="12.9" x2="12.9" y2="62" stroke="black" />
-    <path d="M0 15.5H93" stroke="black" />
-    <path d="M0 46.5C33.8975 46.5 59.1025 46.5 93 46.5" stroke="black" />
+<svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <g opacity="0.5">
+        <line x1="42.5" y1="-3.64262e-09" x2="42.5" y2="60" stroke="black" />
+        <line x1="12.5" x2="12.5" y2="60" stroke="black" />
+        <path d="M0 15H60" stroke="black" />
+        <path d="M0 45C32.804 45 27.196 45 60 45" stroke="black" />
+    </g>
 </svg>

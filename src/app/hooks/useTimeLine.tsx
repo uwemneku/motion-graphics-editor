@@ -6,6 +6,8 @@ import type { KeyFrame, TimeLineStore } from "../../types";
 import { insertKeyFrameIntoElementTimeline } from "../util/timeline";
 
 gsap.registerPlugin(GSDevTools);
+
+//
 const useTimeLine = create<TimeLineStore>((set, get) => {
   const timeline = gsap.timeline({
     paused: true,
@@ -91,6 +93,19 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     keyFrames: [],
     nodesIndex: [],
     nodes: {},
+    selectNode(id) {
+      updateDraft((draft) => {
+        draft.selectedNodeId = id;
+      });
+    },
+    deleteNode(id) {
+      const node = get().nodes[id]?.element;
+      if (node) {
+        node.destroy();
+      }
+      get().removeNode(id);
+      get().timeline.invalidate();
+    },
     createNode(...args) {
       updateDraft((draft) => {
         const id = crypto.randomUUID();
@@ -137,6 +152,7 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     play() {
       get()
         .timeline.play(0)
+
         .then(() => {
           timeline.pause();
         });
