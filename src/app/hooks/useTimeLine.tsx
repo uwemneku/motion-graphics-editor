@@ -123,6 +123,7 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
         if (!draft.nodes[id]) return;
         draft.nodes[id].element = node;
       });
+      console.log(get().nodes);
     },
     selectKeyFrame(keyFrame) {
       updateDraft((draft) => {

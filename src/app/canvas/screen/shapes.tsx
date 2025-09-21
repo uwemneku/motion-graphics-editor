@@ -58,7 +58,7 @@ function AppShapes(props: Props) {
         x,
         y,
       },
-      timeStamp: (screenContext?.scrubPosition.current || 0) * 10,
+      timeStamp: screenContext?.scrubPosition.current || 0,
     });
   }
 

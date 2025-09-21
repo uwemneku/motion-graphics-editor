@@ -5,13 +5,15 @@ import useTimeLine from "../../hooks/useTimeLine";
 import KeyFrames from "./keyframes";
 
 const TIMELINE_DURATION = 10; // seconds
-const SLIDER_MAX = 1;
+const FRAME_RATE = 24; // frames per second
 function Timeline() {
   const keyFrames = useTimeLine((e) => e.nodesIndex);
   const timeLine = useTimeLine((e) => e.timeline);
   const containerRef = useRef<HTMLDivElement>(null);
   const play = useTimeLine((e) => e.play);
   const c = useScreenContext();
+  //
+  const TOTAL_FRAMES = TIMELINE_DURATION * FRAME_RATE;
 
   return (
     <div className="relative h-full text-white">
@@ -31,18 +33,22 @@ function Timeline() {
           className="w-full"
           defaultValue={0}
           min={0}
-          max={SLIDER_MAX}
-          step={Number.MIN_VALUE}
+          max={TOTAL_FRAMES}
+          step={1}
           onChange={(E) => {
             const value = parseFloat(E.target.value);
+            const progress = value / TOTAL_FRAMES;
+            const timePosition = progress * TIMELINE_DURATION;
             if (!isNaN(value)) {
-              containerRef.current!.style.left = `${value * 100}%`;
               if (timeLine.isActive()) {
                 timeLine.pause();
               }
+              containerRef.current!.style.left = `${progress * 100}%`;
 
-              timeLine.seek(value * 10);
-              c?.setScrubPosition(value);
+              timeLine.seek(timePosition);
+              console.log({ timePosition });
+
+              c?.setScrubPosition(timePosition);
             }
           }}
         />

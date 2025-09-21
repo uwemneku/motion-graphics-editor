@@ -4,6 +4,7 @@ import ShapePicker from "../components/shapes-picker";
 import ScreenContextProvider from "../context/screenContext/provider";
 import useKeybinding from "../hooks/useKeybinding";
 import ExportFeature from "../molecules/export-feature";
+import ExportFeature2 from "../molecules/v2";
 import Screen from "./screen";
 import Timeline from "./timeline";
 
@@ -22,6 +23,7 @@ export default function AppLayout() {
             </FloatingMenuWrapper>
             <FloatingMenuWrapper className="absolute top-3 right-3">
               <ExportFeature />
+              <ExportFeature2 />
             </FloatingMenuWrapper>
             <Screen />
           </div>
