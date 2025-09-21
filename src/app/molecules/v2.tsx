@@ -72,20 +72,14 @@ function ExportFeature2() {
       layer.add(c);
       return { c };
     });
-    const imageObj = new Image();
-    imageObj.onload = function () {
-      const yoda = new Konva.Image({
+    Konva.Image.fromURL("https://konvajs.org/assets/yoda.jpg", (image) => {
+      image.setAttrs({
         x: 50,
         y: 50,
-        image: imageObj,
-        width: 106,
-        height: 118,
       });
+      layer.add(image);
+    });
 
-      layer.add(yoda);
-    };
-    imageObj.crossOrigin = "Anonymous";
-    imageObj.src = "https://konvajs.org/assets/yoda.jpg";
     //
 
     stage.add(layer);
@@ -109,6 +103,8 @@ function ExportFeature2() {
     console.time("gsap");
     const TOTAL_DURATION = timeline.duration(); // seconds
     const totalFrames = frameRate * TOTAL_DURATION;
+    // wait for a short while to let the svg render
+    await new Promise((r) => setTimeout(r, 2000));
 
     for (let i = 1; i < totalFrames; i++) {
       const progress = (i / totalFrames) * 100;

@@ -1,6 +1,19 @@
 # Notes
 
 <hr />
+21/09/2024
+
+- Did some experiments to try and find a good video export strategy.
+  - Had severe video lagging issues when I tired to export video frames directly from the displayed canvas
+  - Exporting from an offline canvas was way better and faster.
+  - Exporting frames with a loop and [Media bunny](https://mediabunny.dev/examples/procedural-generation/) was faster than recording the animation with [canvasElement.captureStream()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/captureStream)
+  - Currently leaning towards recreating all shapes in an offscreen canvas when preparing animations for rendering.
+    - Need to do more experiments to see of it might be possible to use workers to split video rendering.
+        With each worker rendering a segment of the animation and then using media bunny to join the videos.
+  - Media bunny is really cool
+  ![video](./docs/assets/export.gif "Video export")
+
+- Honorable mention: Understood the math for animating circular progress bar with svg circle from this [codepen](https://codepen.io/JMChristensen/pen/AGbeEy?editors=1111)
 
 16/09/2024
 
