@@ -9,11 +9,22 @@ import {
   QUALITY_VERY_HIGH,
 } from "mediabunny";
 import { BiExport } from "react-icons/bi";
+import { IoCloudyNight } from "react-icons/io5";
 import useTimeLine from "../hooks/useTimeLine";
+import RendererWorker from "../util/export-worker?worker";
+const worker = new RendererWorker();
 
 function ExportFeature() {
   const timeline = useTimeLine((e) => e.timeline);
   const elements = useTimeLine((e) => e.nodes?.[e?.nodesIndex?.[0]]);
+
+  const exportUsingWebWorker = () => {
+    worker.postMessage({ type: "start" });
+    worker.onmessage = (e) => {
+      console.log("message from worker", e.data);
+      window.open(e.data, "_blank");
+    };
+  };
 
   /* -------------------------------------------------------------------------- */
   const handleClick = async () => {
@@ -79,6 +90,7 @@ function ExportFeature() {
     //
 
     //
+    console.log({ videoCodec });
 
     console.time("export");
     const TOTAL_DURATION = 10; // seconds
@@ -100,7 +112,12 @@ function ExportFeature() {
     console.timeEnd("export");
     window.open(resultVideo, "_blank");
   };
-  return <BiExport size={24} onClick={handleClick} />;
+  return (
+    <div>
+      <IoCloudyNight size={30} onClick={exportUsingWebWorker} />
+      <BiExport size={24} onClick={handleClick} />
+    </div>
+  );
 }
 
 export default ExportFeature;

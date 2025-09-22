@@ -1,6 +1,11 @@
 # Notes
 
 <hr />
+22/09/2024
+
+- Tried offloading video export to a web worker [(sample script)](https://gist.github.com/uwemneku/53da519d8f602098c9fb7dacba53a672). The resulting video had a very low quality. Turns out the dimensions were the issue, doubling the width and height of the stage fixed the issue.
+This means I might be able to export videos in parallel.
+
 21/09/2024
 
 - Did some experiments to try and find a good video export strategy.
