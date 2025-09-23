@@ -1,3 +1,5 @@
+/// <reference lib="webworker" />
+import { wrap } from "comlink";
 import gsap from "gsap";
 import Konva from "konva";
 import {
@@ -11,19 +13,22 @@ import {
 import { BiExport } from "react-icons/bi";
 import { IoCloudyNight } from "react-icons/io5";
 import useTimeLine from "../hooks/useTimeLine";
-import RendererWorker from "../util/export-worker?worker";
-const worker = new RendererWorker();
+import RendererWorker from "../util/export-woker/index?worker";
 
+const worker = new RendererWorker();
+const obj = wrap(worker);
 function ExportFeature() {
   const timeline = useTimeLine((e) => e.timeline);
   const elements = useTimeLine((e) => e.nodes?.[e?.nodesIndex?.[0]]);
 
-  const exportUsingWebWorker = () => {
-    worker.postMessage({ type: "start" });
-    worker.onmessage = (e) => {
-      console.log("message from worker", e.data);
-      window.open(e.data, "_blank");
-    };
+  const exportUsingWebWorker = async () => {
+    const res = await obj.start();
+    window.open(res, "_blank");
+
+    // worker.onmessage = (e) => {
+    //   console.log("message from worker", e.data);
+    //   window.open(e.data, "_blank");
+    // };
   };
 
   /* -------------------------------------------------------------------------- */

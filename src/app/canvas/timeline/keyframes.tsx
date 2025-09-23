@@ -13,8 +13,6 @@ const KeyFrames = (props: { id: string }) => {
   const widthPercent = (totalDuration / 10) * 100 || 0;
   const startPosition = (firstKeyFrame?.timeStamp / 10) * 100 || 0;
 
-  console.log({ totalDuration, widthPercent });
-
   return (
     <div className="relative flex gap-5">
       <div
@@ -46,7 +44,7 @@ const Frame = (props: KeyFrame & { style: CSSProperties }) => {
   return (
     <div
       onClick={() => selectKeyFrame(isSelected ? undefined : props)}
-      className="absolute top-0 size-2 translate-x-[-50%] rotate-45 bg-white"
+      className="absolute top-0 size-2 translate-x-[-50%] rotate-45 bg-black"
       style={{ ...props.style, border: isSelected ? "2px solid red" : "none" }}
     ></div>
   );

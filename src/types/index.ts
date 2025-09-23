@@ -48,7 +48,7 @@ type NodeRecord = {
   };
 }[keyof NodeArgs];
 
-type CreateNodeArgs = {
+export type CreateNodeArgs = {
   [K in keyof NodeArgs]: NodeArgs[K] extends void ? [K] : [K, NodeArgs[K]];
 }[keyof NodeArgs];
 export type NodeType = keyof NodeArgs;

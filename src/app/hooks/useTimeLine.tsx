@@ -1,11 +1,10 @@
 import gsap from "gsap";
-import { GSDevTools } from "gsap/all";
 import { produce, type WritableDraft } from "immer";
 import { create } from "zustand";
 import type { KeyFrame, TimeLineStore } from "../../types";
 import { insertKeyFrameIntoElementTimeline } from "../util/timeline";
 
-gsap.registerPlugin(GSDevTools);
+// gsap.registerPlugin(GSDevTools);
 
 //
 const useTimeLine = create<TimeLineStore>((set, get) => {
@@ -15,7 +14,7 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     smoothChildTiming: false,
   });
 
-  GSDevTools.create({ animation: timeline });
+  // GSDevTools.create({ animation: timeline });
 
   const updateDraft = (
     callback: (draft: WritableDraft<TimeLineStore>) => void,
@@ -120,10 +119,9 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     },
     addNode(node, id) {
       updateDraft((draft) => {
-        if (!draft.nodes[id]) return;
+        if (!draft.nodes[id] || draft.nodes[id].element) return;
         draft.nodes[id].element = node;
       });
-      console.log(get().nodes);
     },
     selectKeyFrame(keyFrame) {
       updateDraft((draft) => {
@@ -132,13 +130,14 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     },
     removeNode(id) {
       updateDraft((draft) => {
+        draft.nodes[id]?.element?.destroy();
         delete draft.nodes[id];
         draft.nodesIndex = draft.nodesIndex.filter((e) => e !== id);
       });
     },
     addKeyFrame(elementId, keyFrame) {
       const keyframeId = crypto.randomUUID();
-      let curindex = 0;
+      let currentIndex = 0;
       updateDraft((draft) => {
         if (!draft.nodes[elementId]) return;
         const { insertIndex, keyframes } = insertKeyFrameIntoElementTimeline(
@@ -146,9 +145,9 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
           draft.nodes?.[elementId].keyframes || [],
         );
         draft.nodes[elementId].keyframes = keyframes;
-        curindex = insertIndex;
+        currentIndex = insertIndex;
       });
-      addTimeline(elementId, curindex, { ...keyFrame, id: keyframeId });
+      addTimeline(elementId, currentIndex, { ...keyFrame, id: keyframeId });
     },
     play() {
       get()

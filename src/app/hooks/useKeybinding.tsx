@@ -2,17 +2,17 @@ import { useEffect } from "react";
 import useTimeLine from "./useTimeLine";
 
 function useKeybinding() {
-  const selectNode = useTimeLine((e) => e.selectNode);
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Example: Log the key that was pressed
-      console.log(`Key pressed: ${e.key}`);
+      console.log(`Key pressed: ${e}`);
       // Add your keybinding logic here
 
       switch (e.key) {
         case "Delete":
         case "Backspace":
           {
+            const selectNode = useTimeLine.getState().selectNode;
             // Handle delete action
             console.log("Delete action triggered");
             const selectedShape = useTimeLine.getState().selectedNodeId;
@@ -33,6 +33,11 @@ function useKeybinding() {
           if (e.ctrlKey || e.metaKey) {
             // Handle redo action
             console.log("Redo action triggered");
+          }
+          break;
+        case " ":
+          {
+            useTimeLine.getState().play();
           }
           break;
         default:

@@ -1,3 +1,4 @@
+import { proxy, wrap, type Remote } from "comlink";
 import gsap from "gsap";
 import Konva from "konva";
 import {
@@ -10,10 +11,33 @@ import {
 } from "mediabunny";
 import { useRef } from "react";
 import { BiExport } from "react-icons/bi";
+import type { WorkerAPI } from "../util/export-woker";
+import RendererWorker from "../util/export-woker/index?worker";
+
+const worker = new RendererWorker();
+const workerProxy = wrap<Remote<WorkerAPI>>(worker);
 
 function ExportFeature2() {
-  const c = Math.PI * 20 * 2;
+  const r = 10;
+  const c = Math.PI * r * 2;
   const ref = useRef<SVGCircleElement>(null);
+
+  const exportUsingWebWorker = async () => {
+    const p = (index: number) => {
+      if (ref.current) {
+        const progress = index * 100;
+        ref.current.style.strokeDashoffset = `${((100 - progress) / 100) * c}`;
+      }
+      console.log("progress", index);
+    };
+    const res = await workerProxy.start(proxy(p));
+    window.open(res, "_blank");
+
+    // worker.onmessage = (e) => {
+    //   console.log("message from worker", e.data);
+    //   window.open(e.data, "_blank");
+    // };
+  };
 
   /* -------------------------------------------------------------------------- */
   const handleClick = async () => {
@@ -108,6 +132,8 @@ function ExportFeature2() {
 
     for (let i = 1; i < totalFrames; i++) {
       const progress = (i / totalFrames) * 100;
+      console.log({ progress });
+
       if (ref.current) {
         ref.current.style.strokeDashoffset = `${((100 - progress) / 100) * c}`;
       }
@@ -127,7 +153,7 @@ function ExportFeature2() {
   };
   return (
     <div className="relative">
-      <BiExport size={24} onClick={handleClick} color="red" />
+      <BiExport size={24} onClick={exportUsingWebWorker} color="red" />
       {/* Add an svg circle og width 24px */}
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -142,10 +168,10 @@ function ExportFeature2() {
         <circle
           cx="12"
           cy="12"
-          r="10"
+          r={r}
           stroke="red"
           strokeWidth="2"
-          strokeDasharray={Math.PI * 20 * 2}
+          strokeDasharray={c}
           strokeDashoffset={c}
           ref={ref}
         />

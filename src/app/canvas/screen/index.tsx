@@ -12,58 +12,61 @@ import { useScreenContext } from "../../context/screenContext/context";
 import useTimeLine from "../../hooks/useTimeLine";
 import AppShapes from "./shapes";
 
+const MIN_SCALE = 0.05;
+const MAX_SCALE = 4;
 function Screen() {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const transforRef = useRef<Konva.Transformer>(null);
-  // const stageRef = useRef<Konva.Stage>(null);
   const screenContext = useScreenContext();
 
   const screenNodes = useTimeLine((e) => e.nodesIndex);
   const selectNode = useTimeLine((e) => e.selectNode);
 
+  const videoHeight = size.height * 0.5;
+  const videoWidth = videoHeight * (16 / 9);
+  const aspectRatioX = Math.max(100, size.width * 0.5 - videoWidth * 0.5);
+  console.log("aspectRatioX", aspectRatioX);
+
   const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
-    e.evt.preventDefault();
-    console.log("wheel", e.evt.deltaY);
+    // e.evt.preventDefault();
 
     const stage = screenContext?.getStageNode();
     if (!stage) return;
-    const oldScale = stage.scaleX();
-    const pointer = stage.getPointerPosition() || { x: 0, y: 0 };
+    e.evt.preventDefault();
 
-    const mousePointTo = {
-      x: (pointer.x - stage.x()) / oldScale,
-      y: (pointer.y - stage.y()) / oldScale,
-    };
-
-    // how to scale? Zoom in? Or zoom out?
-    let direction = e.evt.deltaY > 0 ? 1 : -1;
-
-    // when we zoom on trackpad, e.evt.ctrlKey is true
-    // in that case lets revert direction
-    if (e.evt.ctrlKey) {
-      direction = -direction;
+    // Trackpad two-finger scroll → pan
+    if (!e.evt.ctrlKey) {
+      stage.x(stage.x() - e.evt.deltaX);
+      stage.y(stage.y() - e.evt.deltaY);
+      stage.batchDraw();
+      return;
     }
 
-    const scaleBy = 1.01;
-    const newScale = Math.max(
-      0.5,
-      Math.min(2, direction > 0 ? oldScale * scaleBy : oldScale / scaleBy),
-    );
+    // Trackpad pinch zoom (ctrlKey true) → zoom
+    const oldScale = stage.scaleX();
+    const pointer = stage.getPointerPosition() || { x: 0, y: 0 };
+    const scaleBy = 1.05;
 
-    stage.scale({ x: newScale, y: newScale });
+    const direction = e.evt.deltaY > 0 ? -1 : 1;
+    const newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
+
+    const mousePointTo = {
+      x: pointer.x / oldScale - stage.x() / oldScale,
+      y: pointer.y / oldScale - stage.y() / oldScale,
+    };
 
     stage.scale({ x: newScale, y: newScale });
 
     const newPos = {
-      x: pointer.x - mousePointTo.x * newScale,
-      y: pointer.y - mousePointTo.y * newScale,
+      x: -(mousePointTo.x - pointer.x / newScale) * newScale,
+      y: -(mousePointTo.y - pointer.y / newScale) * newScale,
     };
-    containerRef.current?.style.setProperty("--scale", newScale.toString());
+
     stage.position(newPos);
   };
 
-  const handleStateSelector: KonvaNodeEvents["onClick"] = (e) => {
+  const handleStageClick: KonvaNodeEvents["onClick"] = (e) => {
     const isClickable = e?.target?.getAttr<boolean>("isClickable");
     if (isClickable) {
       transforRef?.current?.nodes([e.target!]);
@@ -72,8 +75,6 @@ function Screen() {
     }
     transforRef?.current?.nodes([]);
   };
-
-  const handleCanvasClick: KonvaNodeEvents["onClick"] = (e) => {};
 
   /* -------------------------------------------------------------------------- */
   /* -------------------------------------------------------------------------- */
@@ -100,45 +101,66 @@ function Screen() {
   return (
     <div className="relative h-full bg-white" ref={containerRef}>
       <Stage
-        onClick={handleStateSelector}
+        onClick={handleStageClick}
         width={size.width}
         height={size.height}
         className=""
         onWheel={handleWheel}
+        onMouseMove={(e) => {
+          console.log("touch move", e?.evt?.touches);
+        }}
+        draggable
         ref={(node) => {
+          if (size.width === 0 || size.height === 0) return;
           screenContext?.setStageNode(node);
         }}
       >
-        {/* Grid Layer - Behind all other content */}
         <Layer>
           <Rect
             fill={"#fff"}
             width={size.width}
             height={size.height}
+            scale={{ x: 1, y: 1 }}
             x={0}
             y={0}
+            ref={(node) => {
+              if (size.width === 0 || size.height === 0) return;
+              node?.cache();
+            }}
+            listening={false}
           />
-          <Rect
-            stroke={"red"}
-            width={size.width * 0.5}
-            height={size.height * 0.5}
-            x={size.width * 0.25}
-            y={size.height * 0.25}
-          />
-        </Layer>
-        {/* Main Content Layer */}
-        <Layer>
+
           {screenNodes.map((id) => {
             return (
               <Fragment key={id}>
-                <AppShapes id={id} transformerRef={transforRef} />
+                <AppShapes
+                  stageHeight={size.height}
+                  stageWidth={size.width}
+                  videoHeight={videoHeight}
+                  videoWidth={videoWidth}
+                  id={id}
+                  key={id}
+                  transformerRef={transforRef}
+                />
               </Fragment>
             );
           })}
+
           <SelectShapeTransformer
             saveRef={(node) => {
               transforRef.current = node;
             }}
+          />
+          <Rect
+            stroke={"#000"}
+            width={videoWidth}
+            height={videoHeight}
+            x={aspectRatioX}
+            y={size.height * 0.05}
+            ref={(node) => {
+              node?.cache();
+            }}
+            listening={false}
           />
         </Layer>
       </Stage>

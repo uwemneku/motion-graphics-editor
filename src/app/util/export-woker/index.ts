@@ -1,3 +1,4 @@
+import { expose } from "comlink";
 import gsap from "gsap";
 import Konva from "konva";
 import {
@@ -9,15 +10,17 @@ import {
   QUALITY_VERY_HIGH,
 } from "mediabunny";
 
-self.onmessage = async function () {
-  console.log("worker started");
-  const width = 800 * 1;
-  const height = 400 * 1;
-  //
+export async function start(p: (progress: number) => void) {
   const output = new Output({
     target: new BufferTarget(), // Stored in memory
     format: new Mp4OutputFormat({}),
   });
+
+  console.log("worker started");
+  const scaleFactor = 1;
+  const width = 3840 * scaleFactor;
+  const height = 2160 * scaleFactor;
+  //
   //
   const videoCodec = await getFirstEncodableVideoCodec(
     output.format.getSupportedVideoCodecs(),
@@ -28,6 +31,7 @@ self.onmessage = async function () {
   );
 
   let c: OffscreenCanvas;
+  const timline = gsap.timeline({ paused: true });
   Konva.Util.createCanvasElement = () => {
     const canvas = new OffscreenCanvas(width, height);
     canvas.style = {};
@@ -42,25 +46,36 @@ self.onmessage = async function () {
   const rec = new Konva.Rect({ width: width, height: height, fill: "white" });
   layer.add(rec);
   //
-  const circles = new Array(200).fill(0).map(() => {
+  new Array(4000).fill(0).forEach((_, index) => {
     const c = new Konva.Circle({
-      x: 40 * Math.random() * 10,
-      y: 40 * Math.random() * 10,
-      radius: 20,
+      x: width / 2,
+      y: height / 2,
+      radius: (width / 2) * 0.1,
       // random fill
 
       fill: `hsl(${360 * Math.random()}, 100%, 50%)`,
       stroke: "black",
       strokeWidth: 1,
     });
-    const x = c.x();
-    const y = c.y();
-    const newX = 800 * Math.random();
-    const newY = 400 * Math.random();
-    const distanceX = newX - x;
-    const distanceY = newY - y;
+
+    const newX = height * 0.5 - index * (width * (Math.random() * 0.1));
+    const newY = height * 0.5 - index * (width * (Math.random() * 0.1));
+    timline.to(
+      c,
+      {
+        x: newX,
+        y: newY,
+        fill: `hsl(${360 * Math.random()}, 100%, 50%)`,
+        // radius: (width / 2) * (Math.random() * 0.1 + 0.05),
+        duration: 5,
+        ease: "none",
+      },
+      0,
+    );
+    // const distanceX = newX - x;
+    // const distanceY = newY - y;
     layer.add(c);
-    return { c, x, y, newX, newY, distanceX, distanceY };
+    // return { c, x, y, newX, newY, distanceX, distanceY };
   });
   //
   stage.add(layer);
@@ -79,16 +94,19 @@ self.onmessage = async function () {
   await output.start();
   //
 
-  console.time("export");
-  const TOTAL_DURATION = 5; // seconds
+  const TOTAL_DURATION = timline.duration(); // seconds
   const totalFrames = frameRate * TOTAL_DURATION;
   for (let i = 1; i < totalFrames; i++) {
-    const progress = gsap.parseEase("none")(i / totalFrames);
-    circles.forEach(({ c, x, y, distanceX, distanceY }) => {
-      c.x(x + distanceX * progress);
-      c.y(y + distanceY * progress);
-    });
-    await canvasSource.add((i / totalFrames) * TOTAL_DURATION, 1 / frameRate);
+    const timeStamp = (i / totalFrames) * TOTAL_DURATION;
+    const progress = i / totalFrames;
+    timline.seek(timeStamp);
+    // const progress = gsap.parseEase("none")(i / totalFrames);
+    // circles.forEach(({ c, x, y, distanceX, distanceY }) => {
+    //   c.x(x + distanceX * progress);
+    //   c.y(y + distanceY * progress);
+    // });
+    await canvasSource.add(timeStamp, 1 / frameRate);
+    p(progress);
   }
   //
   canvasSource.close();
@@ -97,7 +115,10 @@ self.onmessage = async function () {
     type: output.format.mimeType,
   });
   console.timeEnd("export");
-  const img = await c.convertToBlob({ type: "image/png", quality: 4 });
   const resultVideo = URL.createObjectURL(videoBlob);
-  self.postMessage(resultVideo);
-};
+  return resultVideo;
+}
+
+const g = { start };
+export type WorkerAPI = typeof g;
+expose(g);

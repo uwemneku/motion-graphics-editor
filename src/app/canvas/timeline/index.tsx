@@ -18,7 +18,7 @@ function Timeline() {
   return (
     <div className="relative h-full text-white">
       <div onClick={play}>
-        <PiPlayBold />
+        <PiPlayBold color="black" />
       </div>
       <div className="relative mx-4 h-full">
         <div

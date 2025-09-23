@@ -46,7 +46,7 @@ function ShapePicker() {
         <div className="flex gap-3 rounded-full border bg-white px-3 py-1">
           {nodeData.map((e) => (
             <button
-              className="hover:bg-brand relative rounded-full p-1 transition-transform hover:scale-[105%] hover:text-white active:scale-95 hover:[&>svg]:scale-75"
+              className="relative rounded-full p-1 transition-transform hover:scale-[105%] hover:bg-black hover:text-white active:scale-95 hover:[&>svg]:scale-75"
               key={e.type}
               onClick={handleAddNode(e.type)}
             >

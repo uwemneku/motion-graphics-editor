@@ -27,6 +27,20 @@ export default function ScreenContextProvider({ children }: PropsWithChildren) {
     scrubPosition.current = value;
   };
 
+  const fitStageToViewport = () => {
+    const stage = stageRef.current;
+    stage?.to({
+      x: 0,
+      y: 0,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 0.3,
+      easing: Konva.Easings.EaseInOut,
+    });
+
+    console.log("fitStageToViewport", stage);
+  };
+
   return (
     <ScreenContext.Provider
       value={{
@@ -37,6 +51,7 @@ export default function ScreenContextProvider({ children }: PropsWithChildren) {
         setScrubPosition,
         getStageNode,
         setStageNode,
+        fitStageToViewport,
       }}
     >
       {children}
