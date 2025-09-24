@@ -7,6 +7,9 @@ interface IScreenContext {
   attachTransformerToNode(...nodes: Konva.Node[]): void;
   scrubPosition: RefObject<number>;
   setScrubPosition: (value: number) => void;
+  setStageNode: (node: Konva.Stage | null) => void;
+  getStageNode: () => Konva.Stage | null;
+  fitStageToViewport: () => void;
 }
 export const ScreenContext = createContext<IScreenContext | null>(null);
 

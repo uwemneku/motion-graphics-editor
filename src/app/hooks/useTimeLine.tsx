@@ -1,19 +1,25 @@
 import gsap from "gsap";
-import { GSDevTools } from "gsap/all";
 import { produce, type WritableDraft } from "immer";
 import { create } from "zustand";
 import type { KeyFrame, TimeLineStore } from "../../types";
 import { insertKeyFrameIntoElementTimeline } from "../util/timeline";
 
-gsap.registerPlugin(GSDevTools);
+// gsap.registerPlugin(GSDevTools);
+
+//
 const useTimeLine = create<TimeLineStore>((set, get) => {
   const timeline = gsap.timeline({
     paused: true,
     id: "main-timeline",
     smoothChildTiming: false,
+    onUpdate: (e) => {
+      set({ progress: timeline.progress() });
+      console.log({ progress: timeline.progress() });
+    },
   });
+  timeline.to("#root", { duration: 10 });
 
-  GSDevTools.create({ animation: timeline });
+  // GSDevTools.create({ animation: timeline });
 
   const updateDraft = (
     callback: (draft: WritableDraft<TimeLineStore>) => void,
@@ -91,6 +97,21 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     keyFrames: [],
     nodesIndex: [],
     nodes: {},
+    isPaused: false,
+    progress: 0,
+    selectNode(id) {
+      updateDraft((draft) => {
+        draft.selectedNodeId = id;
+      });
+    },
+    deleteNode(id) {
+      const node = get().nodes[id]?.element;
+      if (node) {
+        node.destroy();
+      }
+      get().removeNode(id);
+      get().timeline.invalidate();
+    },
     createNode(...args) {
       updateDraft((draft) => {
         const id = crypto.randomUUID();
@@ -105,7 +126,7 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     },
     addNode(node, id) {
       updateDraft((draft) => {
-        if (!draft.nodes[id]) return;
+        if (!draft.nodes[id] || draft.nodes[id].element) return;
         draft.nodes[id].element = node;
       });
     },
@@ -116,13 +137,14 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     },
     removeNode(id) {
       updateDraft((draft) => {
+        draft.nodes[id]?.element?.destroy();
         delete draft.nodes[id];
         draft.nodesIndex = draft.nodesIndex.filter((e) => e !== id);
       });
     },
     addKeyFrame(elementId, keyFrame) {
       const keyframeId = crypto.randomUUID();
-      let curindex = 0;
+      let currentIndex = 0;
       updateDraft((draft) => {
         if (!draft.nodes[elementId]) return;
         const { insertIndex, keyframes } = insertKeyFrameIntoElementTimeline(
@@ -130,15 +152,27 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
           draft.nodes?.[elementId].keyframes || [],
         );
         draft.nodes[elementId].keyframes = keyframes;
-        curindex = insertIndex;
+        currentIndex = insertIndex;
       });
-      addTimeline(elementId, curindex, { ...keyFrame, id: keyframeId });
+      addTimeline(elementId, currentIndex, { ...keyFrame, id: keyframeId });
     },
-    play() {
+    setVideoDimensions(d) {
+      updateDraft((draft) => {
+        draft.videoDimensions = d;
+      });
+    },
+    videoDimensions: { width: 1080, height: 1920 },
+    togglePlayBack(args) {
+      if (args === "pause") {
+        timeline.pause();
+        set({ isPaused: true });
+        return;
+      }
+      set({ isPaused: false });
       get()
-        .timeline.play(0)
+        .timeline.play(args || 0)
         .then(() => {
-          timeline.pause();
+          get().togglePlayBack("pause");
         });
     },
   };

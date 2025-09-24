@@ -1,6 +1,45 @@
 # Notes
 
 <hr />
+24/09/2024
+- Decoding an svg image directly from the blob could lead to  issues.
+
+  ```ts
+        const imgBlob = await (await fetch("svg_image_url")).blob();
+        const bitmapImage = await createImageBitmap(imgBlob);
+  ```
+
+  To handle such edge cases, better to use Image.decode
+
+  ```ts
+     const img = new Image();
+      img.src = "svg_image_url";
+      await img.decode();
+      const bitmapImage = await createImageBitmap(img);
+  ```
+
+23/09/2024
+
+- Tried out [comlink](https://github.com/GoogleChromeLabs/comlink) for web workers and it really simplified things.
+
+22/09/2024
+
+- Tried offloading video export to a web worker [(sample script)](https://gist.github.com/uwemneku/53da519d8f602098c9fb7dacba53a672). The resulting video had a very low quality. Turns out the dimensions were the issue, doubling the width and height of the stage fixed the issue.
+This means I might be able to export videos in parallel.
+
+21/09/2024
+
+- Did some experiments to try and find a good video export strategy.
+  - Had severe video lagging issues when I tired to export video frames directly from the displayed canvas
+  - Exporting from an offline canvas was way better and faster.
+  - Exporting frames with a loop and [Media bunny](https://mediabunny.dev/examples/procedural-generation/) was faster than recording the animation with [canvasElement.captureStream()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/captureStream)
+  - Currently leaning towards recreating all shapes in an offscreen canvas when preparing animations for rendering.
+    - Need to do more experiments to see of it might be possible to use workers to split video rendering.
+        With each worker rendering a segment of the animation and then using media bunny to join the videos.
+  - Media bunny is really cool
+  ![video](./docs/assets/export.gif "Video export")
+
+- Honorable mention: Understood the math for animating circular progress bar with svg circle from this [codepen](https://codepen.io/JMChristensen/pen/AGbeEy?editors=1111)
 
 16/09/2024
 
