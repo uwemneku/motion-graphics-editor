@@ -11,13 +11,13 @@ import {
   Output,
   QUALITY_VERY_HIGH,
 } from "mediabunny";
-import type { KeyFrame, TimeLineStore } from "../../../types";
+import type { KeyFrame, NodeType, TimeLineStore } from "../../../types";
 
 export async function start(
   videoDimensions: TimeLineStore["videoDimensions"],
   nodes: {
     keyframe: KeyFrame[] | undefined;
-    type: "circle" | "square" | "rectangle" | "image";
+    type: NodeType;
     init: ReturnType<Node<ShapeConfig>["getAttr"]>;
   }[],
   p: (progress: number) => void,
@@ -47,6 +47,7 @@ export async function start(
   const timline = gsap.timeline({ paused: true });
   Konva.Util.createCanvasElement = () => {
     const canvas = new OffscreenCanvas(width, height);
+    //@ts-expect-error knova will throw error if canvas has no style
     canvas.style = {};
     c = canvas;
     return canvas as unknown as HTMLCanvasElement;

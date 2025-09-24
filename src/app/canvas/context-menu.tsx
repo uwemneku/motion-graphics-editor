@@ -1,3 +1,4 @@
+import type { Shape, ShapeConfig } from "konva/lib/Shape";
 import { useScreenContext } from "../context/screenContext/context";
 import useTimeLine from "../hooks/useTimeLine";
 
@@ -43,8 +44,9 @@ function ContextMenu() {
           placeholder="border"
           onChange={(e) => {
             const sanitizedValue = e.target.value.replace(/\D/g, "");
-            if ("strokeWidth" in selectedNode)
-              selectedNode.strokeWidth(parseInt(sanitizedValue));
+            const _selectedNode = selectedNode as Shape<ShapeConfig>;
+            if ("strokeWidth" in _selectedNode)
+              _selectedNode.strokeWidth(parseInt(sanitizedValue));
           }}
         />
       </div>

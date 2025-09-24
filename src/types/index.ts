@@ -41,6 +41,7 @@ type NodeArgs = {
   square: void;
   rectangle: void;
   image: { src: string };
+  text: void;
 };
 
 type NodeRecord = {

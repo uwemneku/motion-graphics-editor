@@ -59,10 +59,11 @@ function ExportFeature2() {
       });
       // if image, convert to bitmap
 
-      if ("src" in (nodeDetails?.data || {})) {
+      const nodeData = nodeDetails?.data || {};
+      if ("src" in nodeData) {
         // const imgBlob = await (await fetch(nodeDetails?.data?.src)).blob();
         const img = new Image();
-        img.src = nodeDetails?.data?.src; // or a data URI
+        img.src = nodeData?.src as string; // or a data URI
         await img.decode();
         const bitmapImage = await createImageBitmap(img);
 
