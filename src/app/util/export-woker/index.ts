@@ -3,6 +3,7 @@ import gsap from "gsap";
 import Konva from "konva";
 import type { Node } from "konva/lib/Node";
 import type { Shape, ShapeConfig } from "konva/lib/Shape";
+import type { Vector2d } from "konva/lib/types";
 import {
   BufferTarget,
   CanvasSource,
@@ -15,6 +16,7 @@ import type { KeyFrame, NodeType, TimeLineStore } from "../../../types";
 
 export async function start(
   videoDimensions: TimeLineStore["videoDimensions"],
+  videoBoundaryPos: Vector2d,
   nodes: {
     keyframe: KeyFrame[] | undefined;
     type: NodeType;

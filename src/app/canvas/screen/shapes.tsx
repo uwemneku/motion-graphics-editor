@@ -47,8 +47,6 @@ function AppShapes(props: Props) {
   function onClick(node: KonvaEventObject<MouseEvent, Node<NodeConfig>>) {
     if (node) {
       console.log({ node });
-
-      //   props.transformerRef.current?.nodes([node.currentTarget!]);
     }
   }
 

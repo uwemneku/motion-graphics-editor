@@ -4,21 +4,19 @@ import useTimeLine from "./useTimeLine";
 function useKeybinding() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Example: Log the key that was pressed
-      console.log(`Key pressed: ${e}`);
-      // Add your keybinding logic here
+      const timeLineState = useTimeLine.getState();
 
       switch (e.key) {
         case "Delete":
         case "Backspace":
           {
-            const selectNode = useTimeLine.getState().selectNode;
+            const selectNode = timeLineState.selectNode;
             // Handle delete action
             console.log("Delete action triggered");
-            const selectedShape = useTimeLine.getState().selectedNodeId;
+            const selectedShape = timeLineState.selectedNodeId;
 
             if (selectedShape) {
-              useTimeLine.getState().deleteNode(selectedShape);
+              timeLineState.deleteNode(selectedShape);
               selectNode(undefined);
             }
           }
@@ -37,7 +35,11 @@ function useKeybinding() {
           break;
         case " ":
           {
-            useTimeLine.getState().play();
+            const isPlaying = timeLineState.timeline.isActive();
+            const playHeadPosition = timeLineState.timeline.time();
+            const progress = timeLineState.timeline.progress();
+            if (isPlaying) timeLineState.togglePlayBack("pause");
+            else timeLineState.togglePlayBack(playHeadPosition);
           }
           break;
         default:

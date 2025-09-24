@@ -12,7 +12,12 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     paused: true,
     id: "main-timeline",
     smoothChildTiming: false,
+    onUpdate: (e) => {
+      set({ progress: timeline.progress() });
+      console.log({ progress: timeline.progress() });
+    },
   });
+  timeline.to("#root", { duration: 10 });
 
   // GSDevTools.create({ animation: timeline });
 
@@ -92,6 +97,8 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     keyFrames: [],
     nodesIndex: [],
     nodes: {},
+    isPaused: false,
+    progress: 0,
     selectNode(id) {
       updateDraft((draft) => {
         draft.selectedNodeId = id;
@@ -155,12 +162,17 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
       });
     },
     videoDimensions: { width: 1080, height: 1920 },
-    play() {
+    togglePlayBack(args) {
+      if (args === "pause") {
+        timeline.pause();
+        set({ isPaused: true });
+        return;
+      }
+      set({ isPaused: false });
       get()
-        .timeline.play(0)
-
+        .timeline.play(args || 0)
         .then(() => {
-          timeline.pause();
+          get().togglePlayBack("pause");
         });
     },
   };

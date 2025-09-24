@@ -40,13 +40,8 @@ function ExportFeature2() {
 
       console.log({ init, nodeDetails });
 
-      // scale width and height to percentage of the video dimensions
-      // if (init.width) init.width = init.width * scale;
-      // if (init.height) init.height = init.height * scale;
       if (init.x) init.x = (init.x - videoBoundaryPos.x) * scale;
       if (init.y) init.y = (init.y - videoBoundaryPos.y) * scale;
-      // if (init.radius) init.radius = init.radius * scale;
-      // if (init.strokeWidth) init.strokeWidth = init.strokeWidth * scale;
       Object.keys(init).forEach((key) => {
         if (["x", "y", "scaleX", "scaleY"].includes(key)) return;
 
@@ -57,11 +52,10 @@ function ExportFeature2() {
           }
         }
       });
-      // if image, convert to bitmap
 
+      // if image, convert to bitmap
       const nodeData = nodeDetails?.data || {};
       if ("src" in nodeData) {
-        // const imgBlob = await (await fetch(nodeDetails?.data?.src)).blob();
         const img = new Image();
         img.src = nodeData?.src as string; // or a data URI
         await img.decode();
@@ -86,6 +80,7 @@ function ExportFeature2() {
     try {
       const res = await workerProxy.start(
         videoDimensions,
+        videoBoundaryPos,
         _nodes,
         proxy(p),
         quality,

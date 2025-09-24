@@ -1,4 +1,3 @@
-import { TbZoom } from "react-icons/tb";
 import FloatingMenuWrapper from "../components/floating-menu-wrapper";
 import ShapePicker from "../components/shapes-menu";
 import { useScreenContext } from "../context/screenContext/context";
@@ -20,10 +19,6 @@ export default function AppLayout() {
           {/* <div className="absolute size-20 w-full backdrop-grayscale-100 z-50 pointer-events-none" /> */}
           <FloatingMenuWrapper className="absolute top-1/2 left-0 ml-3 -translate-y-1/2 transition-all [&>svg]:hover:scale-95">
             <ShapePicker />
-            <TbZoom
-              size={24}
-              onClick={() => screenContext?.fitStageToViewport()}
-            />
           </FloatingMenuWrapper>
           <FloatingMenuWrapper className="absolute top-3 right-3">
             <ExportFeature2 />
@@ -34,7 +29,7 @@ export default function AppLayout() {
       {/* ============ DIVIDER ================= */}
       {/* <div className="h-5 bg-[#FF4500]" /> */}
       {/* ====================================== */}
-      <div className="bg-whit absolute bottom-10 ml-[50%] h-[200px] w-2/3 -translate-x-1/2 rounded-md border border-gray-900 bg-white">
+      <div className="absolute bottom-10 ml-[50%] w-2/3 -translate-x-1/2 rounded-md border-2 border-gray-900 bg-white">
         <Timeline />
       </div>
     </div>

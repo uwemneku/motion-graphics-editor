@@ -19,6 +19,8 @@ export interface KeyFrame {
 export interface TimeLineStore {
   // keyFrames: KeyFrame[];
   timeline: gsap.core.Timeline;
+  progress: number;
+  isPaused: boolean;
   nodes: Record<string, NodeRecord>;
   selectedKeyFrame?: KeyFrame;
   selectKeyFrame: (keyFrame: KeyFrame | undefined) => void;
@@ -33,7 +35,7 @@ export interface TimeLineStore {
   createNode: (...args: CreateNodeArgs) => void;
   deleteNode: (id: string) => void;
   removeNode: (id: string) => void;
-  play: () => void;
+  togglePlayBack: (args?: number | "pause") => void;
 }
 
 type NodeArgs = {

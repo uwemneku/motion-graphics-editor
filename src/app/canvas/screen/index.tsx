@@ -24,9 +24,9 @@ function Screen() {
   const selectNode = useTimeLine((e) => e.selectNode);
   const videoDimensions = useTimeLine((e) => e.videoDimensions);
 
-  const videoDimensionMaxHeight = size.height * 0.5;
+  const videoDimensionMaxHeight = size.height * 0.6;
   const videoHeight = Math.min(videoDimensions.height, videoDimensionMaxHeight);
-  const videoAspectRatio = videoDimensions.width / videoDimensions.height;
+  const videoAspectRatio = 1;
   const videoWidth = videoHeight * videoAspectRatio;
   // center video
   const aspectRatioX = Math.max(100, size.width * 0.5 - videoWidth * 0.5);
