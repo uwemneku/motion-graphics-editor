@@ -12,15 +12,11 @@ import {
 } from "mediabunny";
 import { BiExport } from "react-icons/bi";
 import { IoCloudyNight } from "react-icons/io5";
-import useTimeLine from "../hooks/useTimeLine";
 import RendererWorker from "../util/export-woker/index?worker";
 
 const worker = new RendererWorker();
 const obj = wrap(worker);
 function ExportFeature() {
-  const timeline = useTimeLine((e) => e.timeline);
-  const elements = useTimeLine((e) => e.nodes?.[e?.nodesIndex?.[0]]);
-
   const exportUsingWebWorker = async () => {
     const res = await obj.start();
     window.open(res, "_blank");

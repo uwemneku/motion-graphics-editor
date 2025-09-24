@@ -1,6 +1,27 @@
 # Notes
 
 <hr />
+24/09/2024
+- Decoding an svg image directly from the blob could lead to  issues.
+
+  ```ts
+        const imgBlob = await (await fetch("svg_image_url")).blob();
+        const bitmapImage = await createImageBitmap(imgBlob);
+  ```
+
+  To handle such edge cases, better to use Image.decode
+
+  ```ts
+     const img = new Image();
+      img.src = "svg_image_url";
+      await img.decode();
+      const bitmapImage = await createImageBitmap(img);
+  ```
+
+23/09/2024
+
+- Tried out [comlink](https://github.com/GoogleChromeLabs/comlink) for web workers and it really simplified things.
+
 22/09/2024
 
 - Tried offloading video export to a web worker [(sample script)](https://gist.github.com/uwemneku/53da519d8f602098c9fb7dacba53a672). The resulting video had a very low quality. Turns out the dimensions were the issue, doubling the width and height of the stage fixed the issue.

@@ -1,16 +1,8 @@
 import { proxy, wrap, type Remote } from "comlink";
-import gsap from "gsap";
-import Konva from "konva";
-import {
-  BufferTarget,
-  CanvasSource,
-  getFirstEncodableVideoCodec,
-  Mp4OutputFormat,
-  Output,
-  QUALITY_VERY_HIGH,
-} from "mediabunny";
 import { useRef } from "react";
 import { BiExport } from "react-icons/bi";
+import { useScreenContext } from "../context/screenContext/context";
+import useTimeLine from "../hooks/useTimeLine";
 import type { WorkerAPI } from "../util/export-woker";
 import RendererWorker from "../util/export-woker/index?worker";
 
@@ -21,136 +13,90 @@ function ExportFeature2() {
   const r = 10;
   const c = Math.PI * r * 2;
   const ref = useRef<SVGCircleElement>(null);
+  const timeline = useTimeLine((e) => e.timeline);
+  const screenContext = useScreenContext();
 
   const exportUsingWebWorker = async () => {
+    console.time("export_worker");
+    const timelineState = useTimeLine.getState();
+    const stage = screenContext?.getStageNode();
+    if (!stage) return;
+    const videoBoundary = stage?.findOne("#video-boundary");
+    const videoBoundarySize = videoBoundary?.size() || {
+      width: 0,
+      height: 0,
+    };
+    const videoBoundaryPos = videoBoundary?.position() || { x: 0, y: 0 };
+    const quality = 1;
+    const scale =
+      quality * (timelineState.videoDimensions.width / videoBoundarySize.width);
+
+    const videoDimensions = timelineState.videoDimensions;
+
+    timeline.seek(1);
+    const nodes = timelineState.nodesIndex?.map(async (id) => {
+      const nodeDetails = timelineState.nodes[id];
+      const init = { ...(nodeDetails?.element?.getAttrs() || {}) };
+
+      console.log({ init, nodeDetails });
+
+      // scale width and height to percentage of the video dimensions
+      // if (init.width) init.width = init.width * scale;
+      // if (init.height) init.height = init.height * scale;
+      if (init.x) init.x = (init.x - videoBoundaryPos.x) * scale;
+      if (init.y) init.y = (init.y - videoBoundaryPos.y) * scale;
+      // if (init.radius) init.radius = init.radius * scale;
+      // if (init.strokeWidth) init.strokeWidth = init.strokeWidth * scale;
+      Object.keys(init).forEach((key) => {
+        if (["x", "y", "scaleX", "scaleY"].includes(key)) return;
+
+        if (typeof init[key] === "number") {
+          console.log(key, init[key], typeof init[key], key in []);
+          if (init?.[key] !== undefined) {
+            init[key] = init[key] * scale;
+          }
+        }
+      });
+      // if image, convert to bitmap
+
+      if ("src" in (nodeDetails?.data || {})) {
+        // const imgBlob = await (await fetch(nodeDetails?.data?.src)).blob();
+        const img = new Image();
+        img.src = nodeDetails?.data?.src; // or a data URI
+        await img.decode();
+        const bitmapImage = await createImageBitmap(img);
+
+        init.image = bitmapImage;
+      }
+
+      return {
+        keyframe: nodeDetails?.keyframes,
+        type: nodeDetails?.type,
+        init,
+      };
+    });
+    const _nodes = await Promise.all(nodes || []);
     const p = (index: number) => {
       if (ref.current) {
         const progress = index * 100;
         ref.current.style.strokeDashoffset = `${((100 - progress) / 100) * c}`;
       }
-      console.log("progress", index);
     };
-    const res = await workerProxy.start(proxy(p));
-    window.open(res, "_blank");
-
-    // worker.onmessage = (e) => {
-    //   console.log("message from worker", e.data);
-    //   window.open(e.data, "_blank");
-    // };
-  };
-
-  /* -------------------------------------------------------------------------- */
-  const handleClick = async () => {
-    const output = new Output({
-      target: new BufferTarget(), // Stored in memory
-      format: new Mp4OutputFormat({}),
-    });
-    // const offScreenCanvas = document.querySelectorAll("canvas")[2];
-    const videoCodec = await getFirstEncodableVideoCodec(
-      output.format.getSupportedVideoCodecs(),
-      {
-        width: 800,
-        height: 400,
-      },
-    );
-    const f = document.createElement("div");
-    f.style.backgroundColor = "white";
-    const stage = new Konva.Stage({
-      width: 800,
-      height: 400,
-      container: f,
-    });
-    const layer = new Konva.Layer();
-    const rec = new Konva.Rect({ width: 800, height: 400, fill: "white" });
-    layer.add(rec);
-
-    const timeline = gsap.timeline({ paused: true });
-    new Array(200).fill(0).forEach(() => {
-      const c = new Konva.Circle({
-        x: 40 * Math.random() * 10,
-        y: 40 * Math.random() * 10,
-        radius: 20,
-        // random fill
-
-        fill: `hsl(${360 * Math.random()}, 100%, 50%)`,
-        stroke: "black",
-        strokeWidth: 1,
-      });
-      timeline.to(
-        c,
-        {
-          x: 800 * Math.random(),
-          y: 400 * Math.random(),
-          fill: `hsl(${360 * Math.random()}, 100%, 50%)`,
-          radius: 20 * Math.random() + 10,
-          scaleX: 1 * (Math.random() + 0.5),
-          scaleY: 1 * (Math.random() + 0.5),
-
-          duration: 10,
-
-          ease: "none",
-        },
-        0,
+    try {
+      const res = await workerProxy.start(
+        videoDimensions,
+        _nodes,
+        proxy(p),
+        quality,
       );
+      console.timeEnd("export_worker");
 
-      layer.add(c);
-      return { c };
-    });
-    Konva.Image.fromURL("https://konvajs.org/assets/yoda.jpg", (image) => {
-      image.setAttrs({
-        x: 50,
-        y: 50,
-      });
-      layer.add(image);
-    });
-
-    //
-
-    stage.add(layer);
-
-    if (!videoCodec) {
-      throw new Error("Your browser doesn't support video encoding.");
+      window.open(res, "_blank");
+    } catch (error) {
+      console.log({ error });
     }
-    const offScreenCanvas = stage.getLayers()[0].getCanvas()._canvas;
-    const canvasSource = new CanvasSource(offScreenCanvas, {
-      codec: videoCodec,
-      bitrate: QUALITY_VERY_HIGH,
-    });
-    const frameRate = 60;
-    output.addVideoTrack(canvasSource, { frameRate });
-    await output.start();
-
-    //
-
-    //
-
-    console.time("gsap");
-    const TOTAL_DURATION = timeline.duration(); // seconds
-    const totalFrames = frameRate * TOTAL_DURATION;
-    // wait for a short while to let the svg render
-    await new Promise((r) => setTimeout(r, 2000));
-
-    for (let i = 1; i < totalFrames; i++) {
-      const progress = (i / totalFrames) * 100;
-      console.log({ progress });
-
-      if (ref.current) {
-        ref.current.style.strokeDashoffset = `${((100 - progress) / 100) * c}`;
-      }
-      const timeStamp = (i / totalFrames) * TOTAL_DURATION;
-      timeline.seek(timeStamp);
-      //   const progress = gsap.parseEase("none")(i / totalFrames);
-      await canvasSource.add(timeStamp, 1 / frameRate);
-    }
-    canvasSource.close();
-    await output.finalize();
-    const videoBlob = new Blob([output.target.buffer!], {
-      type: output.format.mimeType,
-    });
-    const resultVideo = URL.createObjectURL(videoBlob);
-    console.timeEnd("gsap");
-    window.open(resultVideo, "_blank");
   };
+
   return (
     <div className="relative">
       <BiExport size={24} onClick={exportUsingWebWorker} color="red" />

@@ -5,6 +5,7 @@ import {
   FaRegSquare,
   FaShapes,
 } from "react-icons/fa6";
+import { PiTextAaBold } from "react-icons/pi";
 import type { NodeType } from "../../types";
 import useTimeLine from "../hooks/useTimeLine";
 
@@ -68,6 +69,7 @@ function ShapePicker() {
 }
 
 const nodeData: { type: NodeType; el: ReactNode }[] = [
+  { type: "text", el: <PiTextAaBold className="z-0" size={24} /> },
   { type: "circle", el: <FaRegCircle className="z-0" size={24} /> },
   { type: "square", el: <FaRegSquare className="z-0" size={24} /> },
   { type: "image", el: <FaRegImage className="z-0" size={24} /> },

@@ -149,6 +149,12 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
       });
       addTimeline(elementId, currentIndex, { ...keyFrame, id: keyframeId });
     },
+    setVideoDimensions(d) {
+      updateDraft((draft) => {
+        draft.videoDimensions = d;
+      });
+    },
+    videoDimensions: { width: 1080, height: 1920 },
     play() {
       get()
         .timeline.play(0)

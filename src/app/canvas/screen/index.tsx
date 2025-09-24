@@ -22,11 +22,14 @@ function Screen() {
 
   const screenNodes = useTimeLine((e) => e.nodesIndex);
   const selectNode = useTimeLine((e) => e.selectNode);
+  const videoDimensions = useTimeLine((e) => e.videoDimensions);
 
-  const videoHeight = size.height * 0.5;
-  const videoWidth = videoHeight * (16 / 9);
+  const videoDimensionMaxHeight = size.height * 0.5;
+  const videoHeight = Math.min(videoDimensions.height, videoDimensionMaxHeight);
+  const videoAspectRatio = videoDimensions.width / videoDimensions.height;
+  const videoWidth = videoHeight * videoAspectRatio;
+  // center video
   const aspectRatioX = Math.max(100, size.width * 0.5 - videoWidth * 0.5);
-  console.log("aspectRatioX", aspectRatioX);
 
   const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     // e.evt.preventDefault();
@@ -67,6 +70,8 @@ function Screen() {
   };
 
   const handleStageClick: KonvaNodeEvents["onClick"] = (e) => {
+    console.log("handleStageClick", { e: e.evt?.offsetX });
+
     const isClickable = e?.target?.getAttr<boolean>("isClickable");
     if (isClickable) {
       transforRef?.current?.nodes([e.target!]);
@@ -74,6 +79,7 @@ function Screen() {
       return;
     }
     transforRef?.current?.nodes([]);
+    selectNode(undefined);
   };
 
   /* -------------------------------------------------------------------------- */
@@ -106,9 +112,6 @@ function Screen() {
         height={size.height}
         className=""
         onWheel={handleWheel}
-        onMouseMove={(e) => {
-          console.log("touch move", e?.evt?.touches);
-        }}
         draggable
         ref={(node) => {
           if (size.width === 0 || size.height === 0) return;
@@ -161,6 +164,7 @@ function Screen() {
               node?.cache();
             }}
             listening={false}
+            id="video-boundary"
           />
         </Layer>
       </Stage>

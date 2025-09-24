@@ -1,6 +1,8 @@
 import { expose } from "comlink";
 import gsap from "gsap";
 import Konva from "konva";
+import type { Node } from "konva/lib/Node";
+import type { Shape, ShapeConfig } from "konva/lib/Shape";
 import {
   BufferTarget,
   CanvasSource,
@@ -9,17 +11,28 @@ import {
   Output,
   QUALITY_VERY_HIGH,
 } from "mediabunny";
+import type { KeyFrame, TimeLineStore } from "../../../types";
 
-export async function start(p: (progress: number) => void) {
+export async function start(
+  videoDimensions: TimeLineStore["videoDimensions"],
+  nodes: {
+    keyframe: KeyFrame[] | undefined;
+    type: "circle" | "square" | "rectangle" | "image";
+    init: ReturnType<Node<ShapeConfig>["getAttr"]>;
+  }[],
+  p: (progress: number) => void,
+  exportQuality = 1,
+) {
+  // return;
   const output = new Output({
     target: new BufferTarget(), // Stored in memory
     format: new Mp4OutputFormat({}),
   });
 
   console.log("worker started");
-  const scaleFactor = 1;
-  const width = 3840 * scaleFactor;
-  const height = 2160 * scaleFactor;
+  // const scaleFactor = 0.5;
+  const width = videoDimensions.width * exportQuality;
+  const height = videoDimensions.height * exportQuality;
   //
   //
   const videoCodec = await getFirstEncodableVideoCodec(
@@ -45,78 +58,81 @@ export async function start(p: (progress: number) => void) {
   const layer = new Konva.Layer();
   const rec = new Konva.Rect({ width: width, height: height, fill: "white" });
   layer.add(rec);
-  //
-  new Array(4000).fill(0).forEach((_, index) => {
-    const c = new Konva.Circle({
-      x: width / 2,
-      y: height / 2,
-      radius: (width / 2) * 0.1,
-      // random fill
 
-      fill: `hsl(${360 * Math.random()}, 100%, 50%)`,
-      stroke: "black",
-      strokeWidth: 1,
-    });
+  nodes.forEach(({ keyframe, type, init }, index) => {
+    if (!keyframe) return;
+    let shape: Shape<ShapeConfig> | null = null;
+    switch (type) {
+      case "circle":
+        shape = new Konva.Circle(init);
+        break;
+      case "square":
+        shape = new Konva.Rect(init);
+        break;
+      case "rectangle":
+        shape = new Konva.Rect(init);
+        break;
+      case "image":
+        shape = new Konva.Image({
+          image: init.image,
+          ...init,
+        });
+        break;
 
-    const newX = height * 0.5 - index * (width * (Math.random() * 0.1));
-    const newY = height * 0.5 - index * (width * (Math.random() * 0.1));
-    timline.to(
-      c,
-      {
-        x: newX,
-        y: newY,
-        fill: `hsl(${360 * Math.random()}, 100%, 50%)`,
-        // radius: (width / 2) * (Math.random() * 0.1 + 0.05),
-        duration: 5,
-        ease: "none",
-      },
-      0,
-    );
-    // const distanceX = newX - x;
-    // const distanceY = newY - y;
-    layer.add(c);
-    // return { c, x, y, newX, newY, distanceX, distanceY };
+      default:
+        break;
+    }
+    if (!shape) return;
+    layer.add(shape);
+    timline.to(shape, { x: 200, duration: 5, delay: 2 }, 0);
   });
+  console.log({ timline });
+
+  // return;
+
   //
   stage.add(layer);
-  //
-  if (!videoCodec) {
-    throw new Error("Your browser doesn't support video encoding.");
-  }
-  //
-  const frameRate = 60;
-  const offScreenCanvas = stage.getLayers()[0].getCanvas()._canvas;
-  const canvasSource = new CanvasSource(offScreenCanvas, {
-    codec: videoCodec,
-    bitrate: QUALITY_VERY_HIGH,
-  });
-  output.addVideoTrack(canvasSource, { frameRate });
-  await output.start();
-  //
+  try {
+    if (!videoCodec) {
+      throw new Error("Your browser doesn't support video encoding.");
+    }
+    //
+    const frameRate = 60;
+    const offScreenCanvas = stage.getLayers()[0].getCanvas()._canvas;
+    const canvasSource = new CanvasSource(offScreenCanvas, {
+      codec: videoCodec,
+      bitrate: QUALITY_VERY_HIGH,
+    });
+    output.addVideoTrack(canvasSource, { frameRate });
+    await output.start();
+    //
 
-  const TOTAL_DURATION = timline.duration(); // seconds
-  const totalFrames = frameRate * TOTAL_DURATION;
-  for (let i = 1; i < totalFrames; i++) {
-    const timeStamp = (i / totalFrames) * TOTAL_DURATION;
-    const progress = i / totalFrames;
-    timline.seek(timeStamp);
-    // const progress = gsap.parseEase("none")(i / totalFrames);
-    // circles.forEach(({ c, x, y, distanceX, distanceY }) => {
-    //   c.x(x + distanceX * progress);
-    //   c.y(y + distanceY * progress);
-    // });
-    await canvasSource.add(timeStamp, 1 / frameRate);
-    p(progress);
+    const TOTAL_DURATION = timline.duration(); // seconds
+    const totalFrames = frameRate * TOTAL_DURATION;
+    for (let i = 1; i < totalFrames; i++) {
+      const timeStamp = (i / totalFrames) * TOTAL_DURATION;
+      const progress = i / totalFrames;
+      timline.seek(timeStamp);
+      // const progress = gsap.parseEase("none")(i / totalFrames);
+      // circles.forEach(({ c, x, y, distanceX, distanceY }) => {
+      //   c.x(x + distanceX * progress);
+      //   c.y(y + distanceY * progress);
+      // });
+      await canvasSource.add(timeStamp, 1 / frameRate);
+      p(progress);
+    }
+    //
+    canvasSource.close();
+    await output.finalize();
+    const videoBlob = new Blob([output.target.buffer!], {
+      type: output.format.mimeType,
+    });
+    const resultVideo = URL.createObjectURL(videoBlob);
+    return resultVideo;
+  } catch (error) {
+    console.error("Export failed", { error });
   }
   //
-  canvasSource.close();
-  await output.finalize();
-  const videoBlob = new Blob([output.target.buffer!], {
-    type: output.format.mimeType,
-  });
-  console.timeEnd("export");
-  const resultVideo = URL.createObjectURL(videoBlob);
-  return resultVideo;
 }
 
 const g = { start };

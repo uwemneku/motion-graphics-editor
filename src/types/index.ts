@@ -1,4 +1,6 @@
 import type Konva from "konva";
+import type { Node } from "konva/lib/Node";
+import type { ShapeConfig } from "konva/lib/Shape";
 
 export interface KeyFrame {
   id: string;
@@ -20,6 +22,8 @@ export interface TimeLineStore {
   nodes: Record<string, NodeRecord>;
   selectedKeyFrame?: KeyFrame;
   selectKeyFrame: (keyFrame: KeyFrame | undefined) => void;
+  videoDimensions: { width: number; height: number };
+  setVideoDimensions: (d: { width: number; height: number }) => void;
   nodesIndex: string[];
   addKeyFrame: (elementId: string, keyFrame: Omit<KeyFrame, "id">) => void;
 
@@ -42,7 +46,7 @@ type NodeArgs = {
 type NodeRecord = {
   [K in keyof NodeArgs]: {
     type: K;
-    element?: Konva.Node;
+    element?: Node<ShapeConfig>;
     keyframes?: KeyFrame[];
     data?: NodeArgs[K] extends void ? object : NodeArgs[K];
   };

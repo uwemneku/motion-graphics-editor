@@ -24,11 +24,10 @@ function AppShapes(props: Props) {
   const shapeId = props.id;
   const isImage = shapeDetails?.type === "image";
 
-  const sharedProps: NodeConfig = {
+  const sharedProps = {
     id: shapeId,
-    //
-    x: props.stageWidth / 2 - 50,
     y: props.stageHeight / 4 - 50,
+    x: props.stageWidth / 2,
     width: 50,
     height: 50,
     stroke: "black",
@@ -43,7 +42,7 @@ function AppShapes(props: Props) {
     onDragEnd: handleDragEnd,
     ref: handleNodeRef,
     onTransformEnd: handleTransformEnd,
-  };
+  } satisfies NodeConfig;
 
   function onClick(node: KonvaEventObject<MouseEvent, Node<NodeConfig>>) {
     if (node) {
@@ -81,6 +80,8 @@ function AppShapes(props: Props) {
       width,
       height,
       scale: { x: 1, y: 1 },
+      x: e.target.x(),
+      y: e.target.y(),
     });
   }
 
@@ -88,14 +89,21 @@ function AppShapes(props: Props) {
     case "circle":
       return <Circle {...sharedProps} />;
     case "square":
-      return <Rect {...sharedProps} />;
+      return (
+        <Rect
+          {...sharedProps}
+
+          // offsetX={sharedProps.width / 2}
+          // offsetY={sharedProps.height / 2}
+        />
+      );
     case "image":
       return (
         <URLImage
+          {...sharedProps}
           videoHeight={props.videoHeight}
           videoWidth={props.videoWidth}
           src={shapeDetails.data?.src || ""}
-          {...sharedProps}
         />
       );
     default:

@@ -4,6 +4,7 @@ import ShapePicker from "../components/shapes-menu";
 import { useScreenContext } from "../context/screenContext/context";
 import useKeybinding from "../hooks/useKeybinding";
 import ExportFeature2 from "../molecules/v2";
+import ContextMenu from "./context-menu";
 import Screen from "./screen";
 import Timeline from "./timeline";
 
@@ -12,6 +13,7 @@ export default function AppLayout() {
   useKeybinding();
   return (
     <div className="flex h-screen w-screen flex-col">
+      <ContextMenu />
       <main className="relative flex-1">
         <div className="relative h-full">
           {/* The div below was added to see if backdrop-xxxxxx css styling can be used to hide things that are outside the view area */}
