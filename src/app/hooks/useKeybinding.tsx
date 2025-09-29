@@ -11,12 +11,14 @@ function useKeybinding() {
         case "Backspace":
           {
             const selectNode = timeLineState.selectNode;
+            const selectedShapeId = timeLineState.selectedNodeId;
+            const node = timeLineState.nodes?.[selectedShapeId || ""];
+            node?.element?.destroy();
             // Handle delete action
             console.log("Delete action triggered");
-            const selectedShape = timeLineState.selectedNodeId;
 
-            if (selectedShape) {
-              timeLineState.deleteNode(selectedShape);
+            if (selectedShapeId) {
+              timeLineState.deleteNode(selectedShapeId);
               selectNode(undefined);
             }
           }
@@ -35,11 +37,7 @@ function useKeybinding() {
           break;
         case " ":
           {
-            const isPlaying = timeLineState.timeline.isActive();
-            const playHeadPosition = timeLineState.timeline.time();
-            const progress = timeLineState.timeline.progress();
-            if (isPlaying) timeLineState.togglePlayBack("pause");
-            else timeLineState.togglePlayBack(playHeadPosition);
+            useTimeLine.getState().togglePlayBack();
           }
           break;
         default:

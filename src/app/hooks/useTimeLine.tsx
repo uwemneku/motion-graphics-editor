@@ -12,14 +12,14 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     paused: true,
     id: "main-timeline",
     smoothChildTiming: false,
-    onUpdate: (e) => {
+    repeat: Infinity,
+    onUpdate: () => {
       set({ progress: timeline.progress() });
       console.log({ progress: timeline.progress() });
     },
+    onComplete: () => {},
   });
   timeline.to("#root", { duration: 10 });
-
-  // GSDevTools.create({ animation: timeline });
 
   const updateDraft = (
     callback: (draft: WritableDraft<TimeLineStore>) => void,
@@ -49,6 +49,8 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     }
     const prevKeyFrame = allKeyFrames[curIndex - 1];
     const nextKeyFrame = allKeyFrames[curIndex + 1];
+
+    // Animate from previous keyframe to current keyframe
     if (prevKeyFrame) {
       timeline.pause(prevKeyFrame?.timeStamp || 0);
       const t = timeline.getById(`${keyFrame.timeStamp}${elementId}`);
@@ -61,17 +63,17 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
         {
           konva: keyFrame.animatable,
           duration: keyFrameDuration,
-          ease: "linear",
+          ease: "none",
           id: `${keyFrame.timeStamp}${elementId}`,
         },
 
         prevKeyFrame?.timeStamp || 0,
       );
-      // timeline.invalidate(); // to recalculate the timeline
+      timeline.invalidate(); // to recalculate the timeline
 
+      // If there is a next keyframe, animate from current to next
       if (nextKeyFrame) {
         const t = timeline.getById(`${nextKeyFrame.timeStamp}${elementId}`);
-        console.log({ next: t });
 
         if (t) timeline.remove(t);
         timeline.to(
@@ -79,7 +81,7 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
           {
             konva: nextKeyFrame.animatable,
             duration: nextKeyFrame.timeStamp - keyFrame.timeStamp,
-            ease: "linear",
+            ease: "none",
             id: `${nextKeyFrame.timeStamp}${elementId}`,
           },
           keyFrame.timeStamp,
@@ -88,8 +90,6 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
       timeline.invalidate(); // to recalculate the timeline
       timeline.progress(keyFrame.timeStamp / timeline.duration());
     }
-    // log all tweens for this id
-    console.log(timeline.getTweensOf(node));
   };
 
   return {
@@ -97,8 +97,14 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     keyFrames: [],
     nodesIndex: [],
     nodes: {},
-    isPaused: false,
+    isPaused: true,
     progress: 0,
+    aspectRatio: 16 / 9,
+    videoDimensions: { width: 1920, height: 1080 },
+
+    setAspectRatio(ratio) {
+      set({ aspectRatio: ratio });
+    },
     selectNode(id) {
       updateDraft((draft) => {
         draft.selectedNodeId = id;
@@ -115,6 +121,7 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     createNode(...args) {
       updateDraft((draft) => {
         const id = crypto.randomUUID();
+        draft.selectedNodeId = id;
         draft.nodesIndex.push(id);
         draft.nodes[id] = {
           type: args[0],
@@ -144,6 +151,7 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     },
     addKeyFrame(elementId, keyFrame) {
       const keyframeId = crypto.randomUUID();
+      const nodeData = get().nodes[elementId];
       let currentIndex = 0;
       updateDraft((draft) => {
         if (!draft.nodes[elementId]) return;
@@ -161,19 +169,18 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
         draft.videoDimensions = d;
       });
     },
-    videoDimensions: { width: 1080, height: 1920 },
     togglePlayBack(args) {
-      if (args === "pause") {
-        timeline.pause();
+      const isPlaying = timeline.isActive();
+      const playHeadPosition = timeline.time();
+      const progress = timeline.progress();
+      if (isPlaying) {
+        timeline.pause(undefined, false);
         set({ isPaused: true });
-        return;
+      } else {
+        const isCompelete = progress === 1;
+        timeline.play(isCompelete ? 0 : playHeadPosition, false);
+        set({ isPaused: false });
       }
-      set({ isPaused: false });
-      get()
-        .timeline.play(args || 0)
-        .then(() => {
-          get().togglePlayBack("pause");
-        });
     },
   };
 });

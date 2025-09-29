@@ -2,18 +2,21 @@ import type Konva from "konva";
 import type { Node } from "konva/lib/Node";
 import type { ShapeConfig } from "konva/lib/Shape";
 
+export interface AnimatableProps {
+  x?: number;
+  y?: number;
+  width?: number;
+  scaleX?: number;
+  scaleY?: number;
+  height?: number;
+  fill?: string;
+}
+
 export interface KeyFrame {
   id: string;
   timeStamp: number;
-  animatable: {
-    x?: number;
-    y?: number;
-    width?: number;
-    scaleX?: number;
-    scaleY?: number;
-    height?: number;
-    fill?: string;
-  };
+  animatable: AnimatableProps;
+  offScreen: AnimatableProps;
 }
 
 export interface TimeLineStore {
@@ -24,6 +27,8 @@ export interface TimeLineStore {
   nodes: Record<string, NodeRecord>;
   selectedKeyFrame?: KeyFrame;
   selectKeyFrame: (keyFrame: KeyFrame | undefined) => void;
+  aspectRatio: number;
+  setAspectRatio(ratio: number): void;
   videoDimensions: { width: number; height: number };
   setVideoDimensions: (d: { width: number; height: number }) => void;
   nodesIndex: string[];

@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+:root{
+  --color-primary: white;
+  --color-highlight: black;
+
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: black;
+    --color-highlight: white;
+  }
+}
+
 @theme {
   --color-brand: #FF4500;
+  --color-primary: var(--color-primary);
+  --color-highlight: var(--color-highlight);
 }

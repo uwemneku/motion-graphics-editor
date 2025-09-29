@@ -3,7 +3,7 @@ import { useRef } from "react";
 import { BiExport } from "react-icons/bi";
 import { useScreenContext } from "../context/screenContext/context";
 import useTimeLine from "../hooks/useTimeLine";
-import type { WorkerAPI } from "../util/export-woker";
+import { type WorkerAPI } from "../util/export-woker";
 import RendererWorker from "../util/export-woker/index?worker";
 
 const worker = new RendererWorker();
@@ -26,19 +26,18 @@ function ExportFeature2() {
       width: 0,
       height: 0,
     };
+
     const videoBoundaryPos = videoBoundary?.position() || { x: 0, y: 0 };
-    const quality = 1;
+    const quality = 1; // between 0 and 1
     const scale =
       quality * (timelineState.videoDimensions.width / videoBoundarySize.width);
 
     const videoDimensions = timelineState.videoDimensions;
 
-    timeline.seek(1);
+    timeline.seek(0);
     const nodes = timelineState.nodesIndex?.map(async (id) => {
       const nodeDetails = timelineState.nodes[id];
       const init = { ...(nodeDetails?.element?.getAttrs() || {}) };
-
-      console.log({ init, nodeDetails });
 
       if (init.x) init.x = (init.x - videoBoundaryPos.x) * scale;
       if (init.y) init.y = (init.y - videoBoundaryPos.y) * scale;
@@ -46,7 +45,6 @@ function ExportFeature2() {
         if (["x", "y", "scaleX", "scaleY"].includes(key)) return;
 
         if (typeof init[key] === "number") {
-          console.log(key, init[key], typeof init[key], key in []);
           if (init?.[key] !== undefined) {
             init[key] = init[key] * scale;
           }
@@ -81,6 +79,8 @@ function ExportFeature2() {
       const res = await workerProxy.start(
         videoDimensions,
         videoBoundaryPos,
+        timeline.duration(),
+        scale,
         _nodes,
         proxy(p),
         quality,
