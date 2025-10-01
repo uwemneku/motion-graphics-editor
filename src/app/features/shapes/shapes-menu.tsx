@@ -1,3 +1,4 @@
+import { useAppDispatch } from "@/app/store";
 import { type ReactNode } from "react";
 import {
   FaRegCircle,
@@ -6,20 +7,21 @@ import {
   FaShapes,
 } from "react-icons/fa6";
 import { PiTextAaBold } from "react-icons/pi";
-import type { NodeType } from "../../types";
-import useTimeLine from "../hooks/useTimeLine";
+import type { NodeType } from "../../../types";
+import { addShape } from "./slice";
 
 function ShapePicker() {
-  const createNode = useTimeLine((e) => e.createNode);
+  const dispatch = useAppDispatch();
 
   function handleAddNode(shape: NodeType) {
     return function () {
       switch (shape) {
         case "image":
+        case "video":
           break;
 
         default:
-          createNode(shape);
+          dispatch(addShape({ type: shape }));
           break;
       }
     };
@@ -31,9 +33,15 @@ function ShapePicker() {
     if (file) {
       const reader = new FileReader();
       reader.onload = function (event) {
+        // check of file is video
+        const isVideo = file.type.startsWith("video/");
+        console.log({ isVideo });
+
         const imgSrc = event.target?.result;
         if (typeof imgSrc === "string") {
-          createNode("image", { src: imgSrc });
+          dispatch(
+            addShape({ type: isVideo ? "video" : "image", src: imgSrc }),
+          );
         }
       };
       reader.readAsDataURL(file);
@@ -55,7 +63,7 @@ function ShapePicker() {
                 <input
                   type="file"
                   className="absolute left-0 z-10 h-full w-full cursor-pointer bg-black opacity-0"
-                  accept="image/*"
+                  accept="image/*,video/*"
                   onChange={handleImageChange}
                 />
               )}

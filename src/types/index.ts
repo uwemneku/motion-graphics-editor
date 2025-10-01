@@ -1,6 +1,4 @@
 import type Konva from "konva";
-import type { Node } from "konva/lib/Node";
-import type { ShapeConfig } from "konva/lib/Shape";
 
 export interface AnimatableProps {
   x?: number;
@@ -16,7 +14,6 @@ export interface KeyFrame {
   id: string;
   timeStamp: number;
   animatable: AnimatableProps;
-  offScreen: AnimatableProps;
 }
 
 export interface TimeLineStore {
@@ -49,18 +46,15 @@ type NodeArgs = {
   rectangle: void;
   image: { src: string };
   text: void;
+  video: { src: string };
 };
 
-type NodeRecord = {
-  [K in keyof NodeArgs]: {
-    type: K;
-    element?: Node<ShapeConfig>;
-    keyframes?: KeyFrame[];
-    data?: NodeArgs[K] extends void ? object : NodeArgs[K];
-  };
-}[keyof NodeArgs];
+export type NodeRecord = CreateNodeArgs;
 
 export type CreateNodeArgs = {
-  [K in keyof NodeArgs]: NodeArgs[K] extends void ? [K] : [K, NodeArgs[K]];
+  [K in keyof NodeArgs]: {
+    type: K;
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  } & (NodeArgs[K] extends void ? {} : NodeArgs[K]);
 }[keyof NodeArgs];
 export type NodeType = keyof NodeArgs;

@@ -2,7 +2,9 @@ import { proxy, wrap, type Remote } from "comlink";
 import { useRef } from "react";
 import { BiExport } from "react-icons/bi";
 import { useScreenContext } from "../context/screenContext/context";
+import { useShapesRecordContext } from "../features/shapes/useShapesRecordContext";
 import useTimeLine from "../hooks/useTimeLine";
+import { dispatchableSelector, useAppDispatch } from "../store";
 import { type WorkerAPI } from "../util/export-woker";
 import RendererWorker from "../util/export-woker/index?worker";
 
@@ -15,9 +17,12 @@ function ExportFeature2() {
   const ref = useRef<SVGCircleElement>(null);
   const timeline = useTimeLine((e) => e.timeline);
   const screenContext = useScreenContext();
+  const shapeContext = useShapesRecordContext();
+  const dispatch = useAppDispatch();
 
   const exportUsingWebWorker = async () => {
     console.time("export_worker");
+    const state = dispatch(dispatchableSelector((s) => s));
     const timelineState = useTimeLine.getState();
     const stage = screenContext?.getStageNode();
     if (!stage) return;
@@ -35,9 +40,11 @@ function ExportFeature2() {
     const videoDimensions = timelineState.videoDimensions;
 
     timeline.seek(0);
-    const nodes = timelineState.nodesIndex?.map(async (id) => {
-      const nodeDetails = timelineState.nodes[id];
-      const init = { ...(nodeDetails?.element?.getAttrs() || {}) };
+    const nodes = state?.shapes?.ids?.map(async (id) => {
+      const nodeDetails = state.shapes?.data?.[id];
+      const node = shapeContext?.getShape(id);
+      if (!node) return;
+      const init = { ...(node?.getAttrs() || {}) };
 
       if (init.x) init.x = (init.x - videoBoundaryPos.x) * scale;
       if (init.y) init.y = (init.y - videoBoundaryPos.y) * scale;
@@ -52,10 +59,10 @@ function ExportFeature2() {
       });
 
       // if image, convert to bitmap
-      const nodeData = nodeDetails?.data || {};
-      if ("src" in nodeData) {
+      // const nodeData = nodeDetails?.data || {};
+      if ("src" in nodeDetails) {
         const img = new Image();
-        img.src = nodeData?.src as string; // or a data URI
+        img.src = nodeDetails?.src as string; // or a data URI
         await img.decode();
         const bitmapImage = await createImageBitmap(img);
 
@@ -63,7 +70,7 @@ function ExportFeature2() {
       }
 
       return {
-        keyframe: nodeDetails?.keyframes,
+        keyframe: state.timeline.keyFrames?.[id] || [],
         type: nodeDetails?.type,
         init,
       };

@@ -1,25 +1,23 @@
 import { useEffect } from "react";
-import useTimeLine from "./useTimeLine";
+import { useShapesRecordContext } from "../features/shapes/useShapesRecordContext";
+import { useTimelineContext } from "../features/timeline/context/useTimelineContext";
+import { dispatchableSelector, useAppDispatch } from "../store";
 
 function useKeybinding() {
+  const timelineContext = useTimelineContext();
+  const shapeContext = useShapesRecordContext();
+  const dispatch = useAppDispatch();
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const timeLineState = useTimeLine.getState();
-
       switch (e.key) {
         case "Delete":
         case "Backspace":
           {
-            const selectNode = timeLineState.selectNode;
-            const selectedShapeId = timeLineState.selectedNodeId;
-            const node = timeLineState.nodes?.[selectedShapeId || ""];
-            node?.element?.destroy();
-            // Handle delete action
-            console.log("Delete action triggered");
-
+            const selectedShapeId = dispatch(
+              dispatchableSelector((s) => s.shapes.selectedNodeId),
+            );
             if (selectedShapeId) {
-              timeLineState.deleteNode(selectedShapeId);
-              selectNode(undefined);
+              shapeContext.deleteShape(selectedShapeId);
             }
           }
           break;
@@ -37,7 +35,7 @@ function useKeybinding() {
           break;
         case " ":
           {
-            useTimeLine.getState().togglePlayBack();
+            timelineContext.play();
           }
           break;
         default:

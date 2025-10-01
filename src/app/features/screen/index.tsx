@@ -1,9 +1,10 @@
+import { selectShape } from "@/app/features/shapes/slice";
+import { useAppDispatch, useAppSelector } from "@/app/store";
 import { produce } from "immer";
 import type Konva from "konva";
 import { motion } from "motion/react";
 import {
   Fragment,
-  useCallback,
   useEffect,
   useRef,
   useState,
@@ -11,18 +12,15 @@ import {
 } from "react";
 import { Layer, Rect, Stage, Transformer } from "react-konva";
 import { useScreenContext } from "../../context/screenContext/context";
-import useTimeLine from "../../hooks/useTimeLine";
-import AppShapes from "./shapes";
+import AppShapes from "../shapes/shapes";
 
 function Screen() {
   const [size, setSize] = useState({ width: 0, height: 0 });
-  // const containerRef = useRef<HTMLDivElement>(null);
   const transferRef = useRef<Konva.Transformer>(null);
   const screenContext = useScreenContext();
-
-  const screenNodes = useTimeLine((e) => e.nodesIndex);
-  const selectNode = useTimeLine((e) => e.selectNode);
-  const aspecRatio = useTimeLine((e) => e.aspectRatio);
+  const dispatch = useAppDispatch();
+  const screenNodes = useAppSelector((state) => state.shapes.ids);
+  const aspecRatio = 16 / 9;
   const ref = useRef<HTMLDivElement>(null);
 
   const vidoeFrameRef = useRef<Konva.Rect>(null);
@@ -40,6 +38,9 @@ function Screen() {
   }
 
   // center video
+  const selectNode = (id: string | undefined) => {
+    dispatch(selectShape(id));
+  };
 
   const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     // e.evt.preventDefault();
@@ -90,21 +91,18 @@ function Screen() {
     ref?.style.setProperty("--bottom-height", `${bottomHeight}px`);
   };
 
-  const handleStageClick = useCallback(
-    (e: Konva.KonvaEventObject<MouseEvent>) => {
-      const isClickable = e?.target?.getAttr<boolean>("isClickable");
-      console.log("stage clicked", isClickable, e.target, e.currentTarget);
+  const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    const isClickable = e?.target?.getAttr<boolean>("isClickable");
+    console.log("stage clicked", isClickable, e.target, e.currentTarget);
 
-      if (isClickable) {
-        transferRef?.current?.nodes([e.target!]);
-        selectNode(e.target?.getAttr<string>("id"));
-        return;
-      }
-      transferRef?.current?.nodes([]);
-      selectNode(undefined);
-    },
-    [selectNode],
-  );
+    if (isClickable) {
+      transferRef?.current?.nodes([e.target!]);
+      selectNode(e.target?.getAttr<string>("id"));
+      return;
+    }
+    transferRef?.current?.nodes([]);
+    selectNode(undefined);
+  };
 
   /* -------------------------------------------------------------------------- */
   /* -------------------------------------------------------------------------- */
@@ -185,7 +183,7 @@ function Screen() {
         className="pointer-events-none absolute top-0 left-0 z-20 h-full w-full"
       ></motion.div>
       <Stage
-        onClick={handleStageClick}
+        onMouseDown={handleStageClick}
         width={size.width}
         height={size.height}
         className=""
@@ -242,13 +240,6 @@ function Screen() {
             );
           })}
 
-          <SelectShapeTransformer
-            saveRef={function (node) {
-              if (!node) return;
-              transferRef.current = node;
-              screenContext?.saveTransformNode(node);
-            }}
-          />
           <Rect
             stroke={"#000"}
             width={videoWidth}
@@ -263,6 +254,20 @@ function Screen() {
             id="video-boundary"
           />
         </Layer>
+        <Layer
+          ref={(node) => {
+            if (!node) return;
+            node.canvas._canvas.style.zIndex = "25";
+          }}
+        >
+          <SelectShapeTransformer
+            saveRef={function (node) {
+              if (!node) return;
+              transferRef.current = node;
+              screenContext?.saveTransformNode(node);
+            }}
+          />
+        </Layer>
       </Stage>
     </div>
   );
@@ -272,7 +277,7 @@ const SelectShapeTransformer = (props: {
   saveRef: (node: Konva.Transformer | null) => void;
 }) => {
   const transforRef = useRef<Konva.Transformer>(null);
-  const selectedNodeId = useTimeLine((r) => r.selectedNodeId);
+  const selectedNodeId = useAppSelector((state) => state.shapes.selectedNodeId);
 
   if (!selectedNodeId) {
     transforRef.current?.nodes([]);

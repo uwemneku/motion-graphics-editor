@@ -15,7 +15,6 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
     repeat: Infinity,
     onUpdate: () => {
       set({ progress: timeline.progress() });
-      console.log({ progress: timeline.progress() });
     },
     onComplete: () => {},
   });
@@ -115,6 +114,7 @@ const useTimeLine = create<TimeLineStore>((set, get) => {
       if (node) {
         node.destroy();
       }
+      get().selectNode(undefined);
       get().removeNode(id);
       get().timeline.invalidate();
     },

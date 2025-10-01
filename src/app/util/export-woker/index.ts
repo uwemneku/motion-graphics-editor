@@ -284,6 +284,7 @@ export async function start_worker(
     }
     if (!shape) return;
     layer.add(shape);
+    shape.cache();
     keyframe.forEach((kf, index) => {
       if (!shape) return;
       if (kf.animatable.x) {

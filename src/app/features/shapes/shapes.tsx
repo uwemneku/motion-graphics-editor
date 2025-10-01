@@ -1,8 +1,10 @@
 import { useScreenContext } from "@/app/context/screenContext/context";
+import { useAppSelector } from "@/app/store";
 import type Konva from "konva";
 import type { KonvaEventObject, Node, NodeConfig } from "konva/lib/Node";
 import type { ImageConfig } from "konva/lib/shapes/Image";
 import type { Transformer } from "konva/lib/shapes/Transformer";
+import { ALL_FORMATS, BlobSource, Input, VideoSampleSink } from "mediabunny";
 import { motion, useMotionValue } from "motion/react";
 import {
   Fragment,
@@ -15,7 +17,8 @@ import { MdDelete } from "react-icons/md";
 import { Circle, Image, Rect, Text } from "react-konva";
 import { Html } from "react-konva-utils";
 import useImage from "use-image";
-import useTimeLine from "../../hooks/useTimeLine";
+import { useTimelineContext } from "../timeline/context/useTimelineContext";
+import { useShapesRecordContext } from "./useShapesRecordContext";
 
 interface Props {
   id: string;
@@ -26,18 +29,26 @@ interface Props {
   videoHeight: number;
 }
 function AppShapes(props: Props) {
-  const shapeDetails = useTimeLine((e) => e.nodes[props.id]);
-  const addKeyFrame = useTimeLine((e) => e.addKeyFrame);
-  const isSelected = useTimeLine((e) => e.selectedNodeId === props.id);
-  const addNode = useTimeLine((e) => e.addNode);
-  const deleteNode = useTimeLine((e) => e.deleteNode);
+  const shapesContext = useShapesRecordContext();
+  const timelineContext = useTimelineContext();
+  const screenContext = useScreenContext();
+  const shapeDetails = useAppSelector((state) => state.shapes.data[props.id]);
+  console.log({ shapeDetails });
+
+  const isSelected = useAppSelector(
+    (state) => state.shapes.selectedNodeId === props.id,
+  );
+  //
   const hasAddedNode = useRef(false);
+  const isFirstRender = useRef(true);
+  const floatingRef = useRef<HTMLDivElement>(null);
   const nodeRef = useRef<Node<NodeConfig> | null>(null);
-  const shapeId = props.id;
-  const isImage = shapeDetails?.type === "image";
+  //
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const isFirstRender = useRef(true);
+  //
+  const shapeId = props.id;
+  const isImage = shapeDetails?.type === "image";
 
   if (isFirstRender.current && nodeRef.current) {
     props.transformerRef?.current?.nodes([nodeRef.current]);
@@ -46,19 +57,20 @@ function AppShapes(props: Props) {
 
   const sharedProps: NodeConfig = {
     id: shapeId,
-    y: props.stageHeight / 2 - 100,
-    x: props.stageWidth / 2 - 100,
+    y: (props.stageHeight - 200) / 2,
+    x: (props.stageWidth - 200) / 2,
     width: 200,
     height: 200,
     stroke: "red",
     strokeWidth: isImage ? 0 : 5,
     fill: isImage ? undefined : "rgba(0,225,0,1)",
     //
-    draggable: isSelected,
+    draggable: true,
     isClickable: true,
     strokeScaleEnabled: false,
     //
     onClick,
+    onMouseDown: onClick,
     onDragEnd: handleDragEnd,
     onDragMove: handleDragMove,
     ref: handleNodeRef,
@@ -73,21 +85,22 @@ function AppShapes(props: Props) {
 
   function handleDragMove() {
     if (!nodeRef?.current) return;
+    const elementRef = floatingRef?.current?.getBoundingClientRect();
     const _x = nodeRef?.current?.x();
     const _y = nodeRef?.current?.y();
     const _offset = nodeRef?.current?.offset();
     const height = nodeRef?.current?.height() || 0;
     console.log(nodeRef?.current?.isVisible());
+    const max_x = props.stageWidth - (elementRef?.width || 0);
+    const max_y = props.stageHeight - (elementRef?.height || 0);
 
-    console.log("_x, _y", _x, _y, _offset);
-
-    x.set(_x);
-    y.set(_y - height / 2);
+    x.set(Math.max(0, Math.min(_x, max_x)));
+    y.set(Math.max(0, Math.min(_y, max_y)));
   }
 
   function handleNodeRef(node: Node<NodeConfig> | null) {
     if (node && !hasAddedNode.current) {
-      addNode(node, shapeId);
+      shapesContext.saveShape(shapeId, node);
       nodeRef.current = node;
       hasAddedNode.current = true;
     }
@@ -96,13 +109,9 @@ function AppShapes(props: Props) {
   function handleDragEnd(e: KonvaEventObject<DragEvent, Node<NodeConfig>>) {
     const x = e.currentTarget?.x();
     const y = e?.currentTarget?.y();
-    const timeStamp = useTimeLine.getState().timeline?.time();
-    addKeyFrame(shapeId, {
+    const timeStamp = timelineContext.getPlayHeadPosition();
+    timelineContext.addKeyFrame(shapeId, {
       animatable: {
-        x,
-        y,
-      },
-      offScreen: {
         x,
         y,
       },
@@ -137,9 +146,63 @@ function AppShapes(props: Props) {
           {...sharedProps}
           videoHeight={props.videoHeight}
           videoWidth={props.videoWidth}
-          src={shapeDetails.data?.src || ""}
+          src={shapeDetails?.src || ""}
         />
       );
+      break;
+    case "video":
+      {
+        const f = async () => {
+          // create blob source from url
+          console.log("Processing video...", shapeDetails?.src);
+          if (!shapeDetails?.src) return;
+          const blob = await fetch(shapeDetails.src).then((r) => r.blob());
+          const input = new Input({
+            source: new BlobSource(blob), // or BlobSource if local file
+            formats: ALL_FORMATS,
+          });
+
+          const videoTrack = await input.getPrimaryVideoTrack();
+
+          if (!videoTrack) return;
+          const sink = new VideoSampleSink(videoTrack);
+
+          let i = 0;
+          for await (const frame of sink.samples()) {
+            // `frame` is a VideoFrame-like object (pixel data, timestamp, etc.)
+            // You can draw it to a canvas, extract as image, etc.
+            // e.g.:
+            const imageBitmap =
+              (await frame.toCanvasImageSource()) as VideoFrame;
+
+            // crate image blob link
+            const canvas = new OffscreenCanvas(
+              frame.displayWidth,
+              frame.displayHeight,
+            );
+            const ctx = canvas.getContext("2d")!;
+
+            // Draw the frame onto canvas
+            ctx.drawImage(imageBitmap, 0, 0);
+
+            // Convert to Blob (PNG by default, can be "image/jpeg")
+            const blob = await canvas.convertToBlob({ type: "image/png" });
+            const url = URL.createObjectURL(blob);
+            console.log({ url });
+
+            // setVideoSrc(url);
+            // then you can save or process the bitmap
+            console.log("Got frame", i, "timestamp", frame.timestamp);
+            i++;
+
+            frame.close();
+            break;
+          }
+          f();
+        };
+        f();
+        node = null;
+      }
       break;
     default:
       node = null;
@@ -153,17 +216,21 @@ function AppShapes(props: Props) {
           groupProps={{}}
           divProps={{ style: { zIndex: 30 } }}
           parentNodeFunc={() => {
-            return document.body as HTMLDivElement;
+            return (
+              screenContext?.getStageNode()?.container() ||
+              (document.body as HTMLDivElement)
+            );
           }}
         >
           <motion.div
-            style={{ x, y }}
-            className="fixed z-40 flex -translate-x-1/2 -translate-y-full items-center gap-2 rounded-md border bg-white p-2 shadow"
+            ref={floatingRef}
+            style={{ top: y, left: x }}
+            className="fixed z-40 flex items-center gap-2 rounded-md border bg-white p-2 shadow"
           >
             <MdDelete
               size={24}
               onClick={() => {
-                deleteNode(shapeId);
+                shapesContext.deleteShape(shapeId);
                 props?.transformerRef?.current?.nodes([]);
               }}
             />
@@ -191,6 +258,8 @@ const URLImage = ({ src, ...props }: { src: string } & URLImageProps) => {
   const height = Math.min(IMAGE_MAX_HEIGHT, image?.height || 0);
   const imageRatio = (image?.width || 0) / (image?.height || 1);
   const width = height * imageRatio;
+
+  console.log({ width, height, props, src });
 
   return (
     <Image

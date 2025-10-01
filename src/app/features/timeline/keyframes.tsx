@@ -1,9 +1,11 @@
+import { useAppSelector } from "@/app/store";
 import type { CSSProperties } from "react";
 import type { KeyFrame } from "../../../types";
 import useTimeLine from "../../hooks/useTimeLine";
 
 const KeyFrames = (props: { id: string }) => {
-  const _keyFrames = useTimeLine((e) => e.nodes[props.id]?.keyframes || []);
+  const _keyFrames =
+    useAppSelector((state) => state.timeline.keyFrames?.[props.id]) || [];
   const firstKeyFrame = _keyFrames?.[0];
   const lastKeyFrame = _keyFrames?.[_keyFrames.length - 1];
   const totalDuration =
@@ -12,6 +14,8 @@ const KeyFrames = (props: { id: string }) => {
       : 0;
   const widthPercent = (totalDuration / 10) * 100 || 0;
   const startPosition = (firstKeyFrame?.timeStamp / 10) * 100 || 0;
+
+  console.log({ totalDuration, widthPercent, startPosition });
 
   return (
     <div className="relative flex w-full gap-5">

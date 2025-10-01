@@ -1,12 +1,10 @@
 import FloatingMenuWrapper from "../components/floating-menu-wrapper";
-import ShapePicker from "../components/shapes-menu";
-import useKeybinding from "../hooks/useKeybinding";
+import Screen from "../features/screen";
+import ShapePicker from "../features/shapes/shapes-menu";
+import Timeline from "../features/timeline";
 import ExportFeature2 from "../molecules/v2";
-import Screen from "./screen";
-import Timeline from "./timeline";
 
 export default function AppLayout() {
-  useKeybinding();
   return (
     <div className="flex h-[100dvh] w-[100dvw] flex-col">
       <main className="relative flex-1">

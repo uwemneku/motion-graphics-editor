@@ -1,35 +1,30 @@
-import { motion } from "motion/react";
+import useKeybinding from "@/app/hooks/useKeybinding";
+import { useAppDispatch, useAppSelector } from "@/app/store";
+import { motion, useTransform } from "motion/react";
 import { useRef } from "react";
 import { IoChevronDown } from "react-icons/io5";
-import { PiPause, PiPlayBold } from "react-icons/pi";
 import { TbZoom } from "react-icons/tb";
 import { Fragment } from "react/jsx-runtime";
 import { twMerge } from "tailwind-merge";
-import type { NodeType } from "../../../types";
 import { useScreenContext } from "../../context/screenContext/context";
-import useTimeLine from "../../hooks/useTimeLine";
-import AspectRatioButton from "./aspect-ratio-button";
+import { selectShape } from "../shapes/slice";
+import { useShapesRecordContext } from "../shapes/useShapesRecordContext";
+import { useTimelineContext } from "./context/useTimelineContext";
+import { TimeStamp } from "./f";
 import KeyFrames from "./keyframes";
 
 const TIMELINE_DURATION = 10; // seconds
-const FRAME_RATE = 24; // frames per second
 function Timeline() {
-  const timeLine = useTimeLine((e) => e.timeline);
-  const isPaused = useTimeLine((e) => e.isPaused);
-  const nodes = useTimeLine((e) => e.nodesIndex);
-  const play = useTimeLine((e) => e.togglePlayBack);
+  const timeLineContext = useTimelineContext();
+  const isPaused = useAppSelector((state) => state.timeline.isPaused);
+  const nodes = useAppSelector((state) => state.shapes.ids);
   const c = useScreenContext();
   const timelineRef = useRef<HTMLDivElement>(null);
-  const progress = useTimeLine((e) => e.progress);
-  //
-  // convert progress to 00m:00s:00ms format
-  const minutes = Math.floor((progress * TIMELINE_DURATION) / 60);
-  const seconds = Math.floor((progress * TIMELINE_DURATION) % 60);
-  const milliseconds = Math.floor(((progress * TIMELINE_DURATION) % 1) * 100);
-  //
-  const formattedTime = `${String(minutes).padStart(2, "0")}:${String(
-    seconds,
-  ).padStart(2, "0")}:${String(milliseconds).padStart(2, "0")}`;
+  const p = useTransform(
+    timeLineContext.motionValueTimelineProgress,
+    (v) => `${v * 100}%`,
+  );
+  console.log("rendering");
 
   const onTimeLineClick = (e: React.MouseEvent) => {
     console.log("ddd");
@@ -41,31 +36,28 @@ function Timeline() {
     const x = e.clientX - left; // x position within the element.
     const newProgress = x / width;
     const newTime = newProgress * TIMELINE_DURATION;
-    timeLine.seek(newTime, false);
+    timeLineContext.seek(newTime, false);
   };
-
+  useKeybinding();
   return (
-    <>
+    <div>
       <div className="flex items-center justify-center gap-4 border-b-2 border-gray-600 px-6 [&>div]:py-2">
         <div className="flex-1">
-          <TbZoom
-            size={20}
-            color="black"
-            onClick={() => c?.fitStageToViewport()}
-          />
+          <ZoomButton />
         </div>
         <div className="flex flex-1 items-center justify-center gap-4">
           <TimeStamp />
-          <div onClick={() => play()}>
-            {isPaused ? (
+          <div onClick={() => timeLineContext.play()}>
+            {/* {isPaused ? (
               <PiPlayBold color="black" />
             ) : (
               <PiPause color="black" />
-            )}
+            )} */}
+            play
           </div>
         </div>
         <div className="flex flex-1 justify-end">
-          <AspectRatioButton />
+          {/* <AspectRatioButton /> */}
         </div>
       </div>
       {/*  */}
@@ -91,7 +83,7 @@ function Timeline() {
 
               const limit =
                 (post / (boundindClient?.width || 1)) * TIMELINE_DURATION;
-              timeLine.seek(limit, false);
+              timeLineContext.seek(limit, false);
               //
 
               console.log(limit, info.point.x);
@@ -102,13 +94,13 @@ function Timeline() {
               className="absolute top-0 left-0 h-4 w-full border-b bg-gray-300"
             />
 
-            <div // Highlighted background that moves when timeline is playing
-              style={{ width: `${(progress || 0) * 100}%` }}
+            <motion.div // Highlighted background that moves when timeline is playing
+              style={{ width: p }}
               className="absolute top-0 left-0 flex h-4 border-b bg-gray-400"
             >
               <motion.div className="absolute right-0 h-[200px] w-1 translate-x-1/2 bg-[orangered]" />
               <motion.div className="absolute right-0 size-4 translate-x-1/2 bg-[orangered]" />
-            </div>
+            </motion.div>
             <div
               className="pointer-events-none absolute top-0 left-0 grid w-full"
               style={{
@@ -138,16 +130,22 @@ function Timeline() {
           ))}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
 const NodeKeyFrames = ({ id }: { id: string }) => {
-  const node = useTimeLine((e) => e.nodes[id]);
-  const isSelected = useTimeLine((e) => e.selectedNodeId === id);
-  const selectNode = useTimeLine((e) => e.selectNode);
+  const shapeContext = useShapesRecordContext();
+  const dispatch = useAppDispatch();
+
+  const isSelected = useAppSelector(
+    (state) => state.shapes.selectedNodeId === id,
+  );
+  // const node = useTimeLine((e) => e.nodes[id]);
+  const selectNode = () => {
+    dispatch(selectShape(id));
+  };
   const screenContext = useScreenContext();
-  if (!node) return null;
 
   return (
     <div className="item flex w-full border-b border-gray-500">
@@ -157,13 +155,13 @@ const NodeKeyFrames = ({ id }: { id: string }) => {
           isSelected ? "bg-blue-300" : "bg-gray-200",
         )}
         onClick={() => {
-          selectNode(id);
-          if (node?.element)
-            screenContext?.transformNode?.current?.nodes([node.element]);
+          selectNode();
+          const node = shapeContext.getShape(id);
+          if (node) screenContext?.transformNode?.current?.nodes([node]);
         }}
       >
         <IoChevronDown className="-rotate-90" />
-        <p className="truncate text-black">{nodeTitleRecord?.[node?.type]}</p>
+        <p className="truncate text-black">{"nodeTitleRecord?.[node?.type]"}</p>
       </div>
       <div className="flex flex-1 items-center bg-green-100">
         <KeyFrames id={id} />
@@ -172,31 +170,19 @@ const NodeKeyFrames = ({ id }: { id: string }) => {
   );
 };
 
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-const TimeStamp = () => {
-  const progress = useTimeLine((e) => e.progress);
-
-  const minutes = Math.floor((progress * TIMELINE_DURATION) / 60);
-  const seconds = Math.floor((progress * TIMELINE_DURATION) % 60);
-  const milliseconds = Math.floor(((progress * TIMELINE_DURATION) % 1) * 100);
-  //
-  const formattedTime = `${String(minutes).padStart(2, "0")}:${String(
-    seconds,
-  ).padStart(2, "0")}:${String(milliseconds).padStart(2, "0")}`;
+const ZoomButton = () => {
+  console.log("rendering zoom button");
+  return <div />;
   return (
-    <div className="min-w-[90px] rounded-md border px-2 text-center text-black">
-      <p>{formattedTime}</p>
-    </div>
+    <TbZoom
+      size={20}
+      color="black"
+      // onClick={() => c?.fitStageToViewport()}
+    />
   );
 };
 
-const nodeTitleRecord: Record<NodeType, string> = {
-  circle: "Circle",
-  rectangle: "Rectangle",
-  image: "Image",
-  text: "Text",
-  square: "Square",
-};
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 
 export default Timeline;
