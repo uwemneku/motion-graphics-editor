@@ -1,12 +1,11 @@
 import { RxDimensions } from "react-icons/rx";
 import { twMerge } from "tailwind-merge";
-import useTimeLine from "../../hooks/useTimeLine";
 
 function AspectRatioButton() {
-  const aspectRatio = useTimeLine((e) => e.aspectRatio);
-  const setAspectRatio = useTimeLine((e) => e.setAspectRatio);
-  const setVideoDimensions = useTimeLine((e) => e.setVideoDimensions);
-  const videoDimensions = useTimeLine((e) => e.videoDimensions);
+  const aspectRatio = 1;
+  const setAspectRatio = () => {};
+  const setVideoDimensions = () => {};
+  const videoDimensions = () => {};
   return (
     <div className="flex items-center gap-4">
       {(["width", "height"] as const).map((e) => {

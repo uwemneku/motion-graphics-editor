@@ -1,11 +1,8 @@
 import type { Shape, ShapeConfig } from "konva/lib/Shape";
 import { useScreenContext } from "../context/screenContext/context";
-import useTimeLine from "../hooks/useTimeLine";
 
 function ContextMenu() {
-  const selectedNode = useTimeLine(
-    (e) => e.nodes[e.selectedNodeId || ""]?.element,
-  );
+  const selectedNode = null;
   const screenContext = useScreenContext();
 
   if (!selectedNode) return null;

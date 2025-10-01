@@ -34,7 +34,7 @@ export interface TimeLineStore {
   selectedNodeId?: string;
   selectNode: (id: string | undefined) => void;
   addNode: (node: Konva.Node, id: string) => void;
-  createNode: (...args: CreateNodeArgs) => void;
+  createNode: (args: CreateNodeArgs) => void;
   deleteNode: (id: string) => void;
   removeNode: (id: string) => void;
   togglePlayBack: (args?: number | "pause") => void;

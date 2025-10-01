@@ -1,7 +1,6 @@
 import { useAppSelector } from "@/app/store";
 import type { CSSProperties } from "react";
 import type { KeyFrame } from "../../../types";
-import useTimeLine from "../../hooks/useTimeLine";
 
 const KeyFrames = (props: { id: string }) => {
   const _keyFrames =
@@ -40,8 +39,8 @@ const KeyFrames = (props: { id: string }) => {
 };
 
 const Frame = (props: KeyFrame & { style: CSSProperties }) => {
-  const isSelected = useTimeLine((e) => e.selectedKeyFrame?.id === props.id);
-  const selectKeyFrame = useTimeLine((e) => e.selectKeyFrame);
+  const isSelected = false;
+  const selectKeyFrame = () => {};
 
   return (
     <div

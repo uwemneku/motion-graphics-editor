@@ -1,18 +1,12 @@
 import { selectShape } from "@/app/features/shapes/slice";
 import { useAppDispatch, useAppSelector } from "@/app/store";
+import { Canvas, FabricImage, Rect } from "fabric";
 import { produce } from "immer";
 import type Konva from "konva";
 import { motion } from "motion/react";
-import {
-  Fragment,
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
-import { Layer, Rect, Stage, Transformer } from "react-konva";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Transformer } from "react-konva";
 import { useScreenContext } from "../../context/screenContext/context";
-import AppShapes from "../shapes/shapes";
 
 function Screen() {
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -182,93 +176,60 @@ function Screen() {
         ref={ref}
         className="pointer-events-none absolute top-0 left-0 z-20 h-full w-full"
       ></motion.div>
-      <Stage
-        onMouseDown={handleStageClick}
+      <canvas
         width={size.width}
         height={size.height}
         className=""
-        onWheel={handleWheel}
         // draggable
-        onDragMove={(e) => {
-          const ref = screenContext?.getScreenContainerRef();
-          if (!ref) return;
-          const left = initX * e.currentTarget.scale().x + e.currentTarget.x();
-          ref?.style.setProperty("--left-width", `${left}px`);
-          const right =
-            size.width - (left + videoWidth * e.currentTarget.scale().x);
-          ref?.style.setProperty("--right-width", `${right}px`);
-          const top =
-            initHeight * e.currentTarget.scale().y + e.currentTarget.y();
-          ref?.style.setProperty("--top-height", `${top}px`);
-          const bottom =
-            size.height - (top + videoHeight * e.currentTarget.scale().y);
-          ref?.style.setProperty("--bottom-height", `${bottom}px`);
-        }}
-        ref={(node) => {
-          if (size.width === 0 || size.height === 0) return;
-          screenContext?.setStageNode(node);
-        }}
-      >
-        <Layer>
-          <Rect
-            fill={"#fff"}
-            width={size.width}
-            height={size.height}
-            scale={{ x: 1, y: 1 }}
-            x={0}
-            y={0}
-            ref={(node) => {
-              if (size.width === 0 || size.height === 0) return;
-              node?.cache();
-            }}
-            listening={false}
-          />
 
-          {screenNodes.map((id) => {
-            return (
-              <Fragment key={id}>
-                <AppShapes
-                  stageHeight={size.height}
-                  stageWidth={size.width}
-                  videoHeight={videoHeight}
-                  videoWidth={videoWidth}
-                  id={id}
-                  key={id}
-                  transformerRef={transferRef}
-                />
-              </Fragment>
-            );
-          })}
+        ref={async (node) => {
+          if (size.width === 0 || size.height === 0 || !node) return;
+          const canvas = new Canvas(node);
+          const rect = new Rect({
+            width: 500,
+            height: 500,
+            left: 0,
+            top: 0,
+            stroke: "#ff00ff",
+            strokeWidth: 5,
+            fill: "#00ff00",
+            selectable: false,
+            evented: false, // ignores mouse/touch
+            hasControls: false, // no resize/rotate
+            hoverCursor: "default",
+          });
 
-          <Rect
-            stroke={"#000"}
-            width={videoWidth}
-            height={videoHeight}
-            x={size.width / 2 - videoWidth / 2}
-            y={size.height / 2 - videoHeight / 2}
-            ref={(node) => {
-              vidoeFrameRef.current = node;
-              node?.cache();
-            }}
-            listening={false}
-            id="video-boundary"
-          />
-        </Layer>
-        <Layer
-          ref={(node) => {
-            if (!node) return;
-            node.canvas._canvas.style.zIndex = "25";
-          }}
-        >
-          <SelectShapeTransformer
-            saveRef={function (node) {
-              if (!node) return;
-              transferRef.current = node;
-              screenContext?.saveTransformNode(node);
-            }}
-          />
-        </Layer>
-      </Stage>
+          const demoImg = "https://konvajs.org/assets/yoda.jpg";
+
+          let radius = 300;
+
+          console.log({ demoImg });
+
+          // const image = new Image();
+          // image.crossOrigin = "anonymous";
+          // image.src = demoImg;
+
+          // await new Promise((resolve) => {
+          //   image.onload = () => {
+          //     resolve(true);
+          //   };
+          // });
+          const imgBlob = await (await fetch(demoImg)).blob();
+          const bitmapImage = await createImageBitmap(imgBlob);
+          console.log({ bitmapImage });
+          const img = new FabricImage(bitmapImage, {});
+          console.log({ img });
+          img.set({
+            dirty: true,
+            left: 0,
+            top: 0,
+            angle: -15,
+          });
+          canvas.add(img);
+          // canvas.add(rect);
+          canvas.renderAll();
+        }}
+      ></canvas>
     </div>
   );
 }
