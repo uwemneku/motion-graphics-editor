@@ -4,6 +4,8 @@ import { createContext, useContext, type RefObject } from "react";
 interface IScreenContext {
   transformNode: RefObject<Konva.Transformer | null>;
   saveTransformNode: (node: Konva.Transformer) => void;
+  saveScreenContainerRef: (node: HTMLDivElement | null) => void;
+  getScreenContainerRef: () => HTMLDivElement | null;
   attachTransformerToNode(...nodes: Konva.Node[]): void;
   scrubPosition: RefObject<number>;
   setScrubPosition: (value: number) => void;

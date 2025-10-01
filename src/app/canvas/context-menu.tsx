@@ -7,7 +7,6 @@ function ContextMenu() {
     (e) => e.nodes[e.selectedNodeId || ""]?.element,
   );
   const screenContext = useScreenContext();
-  console.log("selectedNode", { selectedNode });
 
   if (!selectedNode) return null;
 

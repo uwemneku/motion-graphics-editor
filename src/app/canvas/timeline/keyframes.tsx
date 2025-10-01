@@ -14,12 +14,11 @@ const KeyFrames = (props: { id: string }) => {
   const startPosition = (firstKeyFrame?.timeStamp / 10) * 100 || 0;
 
   return (
-    <div className="relative flex gap-5">
+    <div className="relative flex w-full gap-5">
       <div
-        className="size-4 rounded-2xl"
+        className="size-6 rounded-md bg-green-500"
         style={{
           width: `${widthPercent}%`,
-          backgroundColor: "rgba(255,255,255,0.2)",
           marginLeft: `${startPosition}%`,
         }}
       />
@@ -39,12 +38,11 @@ const KeyFrames = (props: { id: string }) => {
 const Frame = (props: KeyFrame & { style: CSSProperties }) => {
   const isSelected = useTimeLine((e) => e.selectedKeyFrame?.id === props.id);
   const selectKeyFrame = useTimeLine((e) => e.selectKeyFrame);
-  console.log({ isSelected });
 
   return (
     <div
       onClick={() => selectKeyFrame(isSelected ? undefined : props)}
-      className="absolute top-0 size-2 translate-x-[-50%] rotate-45 bg-black"
+      className="absolute top-0 z-50 size-2 translate-x-[-50%] rotate-45 bg-black"
       style={{ ...props.style, border: isSelected ? "2px solid red" : "none" }}
     ></div>
   );
