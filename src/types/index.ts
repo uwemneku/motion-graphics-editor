@@ -16,7 +16,6 @@ export interface KeyFrame {
   id: string;
   timeStamp: number;
   animatable: AnimatableProps;
-  offScreen: AnimatableProps;
 }
 
 export interface TimeLineStore {

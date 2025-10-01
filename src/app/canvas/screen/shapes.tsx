@@ -102,10 +102,6 @@ function AppShapes(props: Props) {
         x,
         y,
       },
-      offScreen: {
-        x,
-        y,
-      },
       timeStamp: timeStamp || 0,
     });
   }
