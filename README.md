@@ -1,5 +1,14 @@
 # Notes
 
+01/10/24
+
+- Was having issues where videos generated with a worker looked very pixelated, turns out it was because the  [pixelRatio](https://konvajs.org/api/Konva.Canvas.html#getPixelRatio) on the main thread is 2 but on a worker it had a value of 1.
+To get the same quality from the worker thread, I had to set the pixelRatio to two, this made the export process slow but faster than the main thread.
+
+- I tried the app on a low end laptop and it was very very slow compared with other tools like [pikimov](https://pikimov.com/). Did some debugging and the lag was due to how I handled state management with zustand. Zustand docs does show how to reduce rerenders but I think I'll just switch to redux toolkit.
+
+- Took a look at [motionity](https://www.motionity.app/) and it's pretty cool, I tried to replicate the masking feature with knova but failed. I might switch and use Fabric .
+
 <hr />
 24/09/2024
 - Decoding an svg image directly from the blob could lead to  issues.
@@ -18,14 +27,20 @@
       const bitmapImage = await createImageBitmap(img);
   ```
 
+<hr />
+
 23/09/2024
 
 - Tried out [comlink](https://github.com/GoogleChromeLabs/comlink) for web workers and it really simplified things.
+
+<hr />
 
 22/09/2024
 
 - Tried offloading video export to a web worker [(sample script)](https://gist.github.com/uwemneku/53da519d8f602098c9fb7dacba53a672). The resulting video had a very low quality. Turns out the dimensions were the issue, doubling the width and height of the stage fixed the issue.
 This means I might be able to export videos in parallel.
+
+<hr />
 
 21/09/2024
 
@@ -41,11 +56,15 @@ This means I might be able to export videos in parallel.
 
 - Honorable mention: Understood the math for animating circular progress bar with svg circle from this [codepen](https://codepen.io/JMChristensen/pen/AGbeEy?editors=1111)
 
+<hr />
+
 16/09/2024
 
 - Added support for importing images
 - Updated canvas design
 <img src="./docs/assets/ezgif-2e8bcf8acdc3cd.gif" alt="">
+
+<hr />
 
 14/09/2024
 
