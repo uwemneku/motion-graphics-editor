@@ -1,5 +1,5 @@
 import { expose } from "comlink";
-import { config, FabricObject, Rect, StaticCanvas } from "fabric";
+import { FabricObject } from "fabric";
 import gsap from "gsap";
 import type { Node } from "konva/lib/Node";
 import type { ShapeConfig } from "konva/lib/Shape";
@@ -12,6 +12,7 @@ import {
   Output,
   QUALITY_MEDIUM,
 } from "mediabunny";
+import * as THREE from "three";
 import type { KeyFrame, NodeType, TimeLineStore } from "../../../types";
 
 const fabricPlugin: GSAPPlugin = {
@@ -71,23 +72,6 @@ const fabricPlugin: GSAPPlugin = {
 
 gsap.registerPlugin(fabricPlugin);
 
-self.document = {
-  createElement: (args: string) => {
-    console.log({ args });
-
-    switch (args) {
-      case "canvas":
-        return new OffscreenCanvas(100, 100);
-      case "img":
-        return new Image();
-      default:
-    }
-  },
-};
-self.window = {
-  requestAnimationFrame: () => {},
-};
-
 export async function start_worker(
   videoDimensions: TimeLineStore["videoDimensions"],
   videoBoundaryPos: Vector2d,
@@ -126,27 +110,30 @@ export async function start_worker(
   //
 
   const v = new OffscreenCanvas(width, height);
-  v.style = { width: `${width}px`, height: `${width}px` };
-  v.width = width;
-  v.height = height;
-  v.hasAttribute = () => {};
-  v.setAttribute = () => {};
 
-  v.classList = {
-    add: () => {},
-  };
+  // Scene
+  const scene = new THREE.Scene();
 
-  config.configure({ devicePixelRatio: 1 });
-  const canvas = new StaticCanvas(v);
+  // Camera
+  const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+  camera.position.z = 5;
 
-  canvas.setWidth(width);
-  canvas.setHeight(height);
-  console.log({ canvas, width, height });
-  canvas.renderAll();
+  // Renderer
+  const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: v });
+  renderer.setPixelRatio(2);
+  renderer.setSize(width, height, false);
+
+  // Rectangle
+  const geometry = new THREE.PlaneGeometry(2, 1);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x00ff00,
+    side: THREE.DoubleSide,
+  });
+  const rectangle = new THREE.Mesh(geometry, material);
+  scene.add(rectangle);
+  renderer.render(scene, camera);
 
   const demoImg = "https://konvajs.org/assets/yoda.jpg";
-
-  let radius = 300;
 
   console.log({ demoImg });
 
@@ -169,22 +156,6 @@ export async function start_worker(
 
   // canvas.add(img);
 
-  const rect = new Rect({
-    width: width / 2,
-    height: height / 2,
-    left: 0,
-    top: 0,
-    stroke: "#ffffff",
-    strokeWidth: width / 20,
-    fill: "#00ff00",
-    selectable: false,
-    evented: false, // ignores mouse/touch
-    hasControls: false, // no resize/rotate
-    hoverCursor: "default",
-  });
-  canvas.add(rect);
-  canvas.renderAll();
-
   //
   //
   const frameRate = 60;
@@ -197,9 +168,7 @@ export async function start_worker(
 
   const timline = gsap.timeline({
     paused: true,
-    onUpdate: () => {
-      canvas.renderAll.bind(canvas)();
-    },
+    onUpdate: () => {},
   });
 
   // return;
@@ -211,13 +180,10 @@ export async function start_worker(
     await output.start();
     //
 
-    timline.to(rect, {
+    timline.to(rectangle.rotation, {
       duration: videoDuration,
-      left: width - rect.width!,
-      top: height - rect.height!,
-      fill: "rgba(255,0,0,0.5)",
-      strokeWidth: 0,
-      fabric: {},
+      x: Math.PI * 2,
+      y: Math.PI * 2,
       ease: "none",
 
       onUpdate: () => {},
@@ -232,14 +198,9 @@ export async function start_worker(
       const frameStart = performance.now();
       const timeStamp = (i / totalFrames) * TOTAL_DURATION;
       const progress = i / totalFrames;
-      // rect.left()
-      // rect.set({ left: rect.getX() + progress, top: rect.getY() + progress });
-      // rect.setY(rect.getY() + progress);
-      // rect.set({
-      //   strokeWidth: (width / 20) * (1 - progress) + 1,
-      // });
+
       timline.seek(timeStamp, false);
-      // await new Promise((r) => setTimeout(r, 50));
+      renderer.render(scene, camera);
 
       await canvasSource.add(timeStamp, 1 / frameRate);
       p(progress);
