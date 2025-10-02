@@ -199,7 +199,8 @@ function Screen() {
             hoverCursor: "default",
           });
 
-          const demoImg = "https://konvajs.org/assets/yoda.jpg";
+          const demoImg =
+            "https://pixabay.com/get/ge8ea5e853664bf3fb137a83fb4ab73787d119126aa48cde34dfb78cd2e82ba10f77503ed322b7b3f9af815e20c9848c48d2a176cb6b4627896d6d50d6df952c4_640.png";
 
           let radius = 300;
 
@@ -214,17 +215,28 @@ function Screen() {
           //     resolve(true);
           //   };
           // });
-          const imgBlob = await (await fetch(demoImg)).blob();
+          const imgBlob = await (
+            await fetch(demoImg, {
+              method: "GET",
+              headers: {
+                // ":path": "/assets/yoda.jpg",
+              },
+            })
+          ).blob();
           const bitmapImage = await createImageBitmap(imgBlob);
           console.log({ bitmapImage });
-          const img = new FabricImage(bitmapImage, {});
-          console.log({ img });
-          img.set({
+          const img = new FabricImage(bitmapImage, {
             dirty: true,
             left: 0,
             top: 0,
-            angle: -15,
+            scaleX: 2, // gets wider
+            scaleY: 2, // gets taller
+            angle: 360, // spin while falling
+            skewX: 15, // tilt left/right
+            skewY: 5, // tilt top/bottom
           });
+
+          console.log({ img });
           canvas.add(img);
           // canvas.add(rect);
           canvas.renderAll();

@@ -1,10 +1,10 @@
-import { wrap, type Remote } from "comlink";
+import { proxy, wrap, type Remote } from "comlink";
 import { useRef } from "react";
 import { BiExport } from "react-icons/bi";
 import { useScreenContext } from "../context/screenContext/context";
 import { useShapesRecordContext } from "../features/shapes/useShapesRecordContext";
 import { useAppDispatch } from "../store";
-import { start_worker, type WorkerAPI } from "../util/export-woker";
+import type { WorkerAPI } from "../util/export-woker";
 import RendererWorker from "../util/export-woker/index?worker";
 
 const worker = new RendererWorker();
@@ -36,16 +36,18 @@ function ExportFeature2() {
     canvas.width = videoDimensions.width;
     canvas.height = videoDimensions.height;
     const offscreen = canvas?.transferControlToOffscreen();
+
     //
 
-    const res = await start_worker(
+    const res = await workerProxy.start(
       videoDimensions,
       { x: 0, y: 0 },
       10,
       scale,
       [],
-      p,
+      proxy(p),
       quality,
+      // offscreen,
       // transfer(offscreen, [offscreen]),
     );
     console.log({ res });
