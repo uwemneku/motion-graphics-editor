@@ -120,7 +120,7 @@ export async function start_worker(
 
   // Renderer
   const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: v });
-  renderer.setPixelRatio(2);
+  renderer.setPixelRatio(0.5);
   renderer.setSize(width, height, false);
 
   // Rectangle
@@ -183,7 +183,7 @@ export async function start_worker(
     timline.to(rectangle.rotation, {
       duration: videoDuration,
       x: Math.PI * 2,
-      y: Math.PI * 2,
+      // y: Math.PI * 2,
       ease: "none",
 
       onUpdate: () => {},

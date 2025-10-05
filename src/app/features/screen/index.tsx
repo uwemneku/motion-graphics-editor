@@ -1,282 +1,298 @@
-import { selectShape } from "@/app/features/shapes/slice";
-import { useAppDispatch, useAppSelector } from "@/app/store";
-import { Canvas, FabricImage, Rect } from "fabric";
-import { produce } from "immer";
-import type Konva from "konva";
-import { motion } from "motion/react";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Transformer } from "react-konva";
-import { useScreenContext } from "../../context/screenContext/context";
+import { motion, useAnimate, useMotionValue } from "motion/react";
+import { useEffect, useRef, type MouseEventHandler } from "react";
+import { useCanvasWorkerContext } from "./canvas-worker-context";
 
 function Screen() {
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  const transferRef = useRef<Konva.Transformer>(null);
-  const screenContext = useScreenContext();
-  const dispatch = useAppDispatch();
-  const screenNodes = useAppSelector((state) => state.shapes.ids);
-  const aspecRatio = 16 / 9;
-  const ref = useRef<HTMLDivElement>(null);
+  const canvasContext = useCanvasWorkerContext();
+  const canvasNode = useRef<HTMLCanvasElement>(null);
+  const [selectableDiv, animateTransformer] = useAnimate<HTMLDivElement>();
+  const isControlPressed = useRef(false);
+  const isDragging = useRef(false);
+  const dragDistance = useRef(dragInit);
+  const left = useMotionValue(0);
+  const top = useMotionValue(0);
+  const width = useMotionValue(0);
+  const height = useMotionValue(0);
 
-  const vidoeFrameRef = useRef<Konva.Rect>(null);
+  const selectionAllowance = 0; // px
 
-  const isPortraitDevice = size.height > size.width;
-  const videoDimensionMaxHeight = size.height * 0.6;
-  const videoDimensionMaxWidth = size.width * 0.8;
-  let videoHeight = videoDimensionMaxHeight;
-  let videoWidth = videoHeight * aspecRatio;
-  const initX = (size.width - videoWidth) / 2;
-  const initHeight = (size.height - videoHeight) / 2;
-  if (isPortraitDevice) {
-    videoWidth = videoDimensionMaxWidth;
-    videoHeight = videoWidth / aspecRatio;
-  }
+  const registerWorker = async (node: HTMLCanvasElement) => {
+    if (canvasNode.current) return;
+    canvasNode.current = node;
+    const height = node.clientHeight;
+    const width = node.clientWidth;
 
-  // center video
-  const selectNode = (id: string | undefined) => {
-    dispatch(selectShape(id));
+    const offscreenCanvas = node?.transferControlToOffscreen();
+    await canvasContext.init(offscreenCanvas, width, height, window.devicePixelRatio || 1);
   };
 
-  const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
-    // e.evt.preventDefault();
-
-    const stage = screenContext?.getStageNode();
-    if (!stage) return;
-    e.evt.preventDefault();
-
-    // Trackpad two-finger scroll → pan
-    if (!e.evt.ctrlKey) {
-      stage.x(stage.x() - e.evt.deltaX);
-      stage.y(stage.y() - e.evt.deltaY);
-
-      stage.batchDraw();
-    } else {
-      // Trackpad pinch zoom (ctrlKey true) → zoom
-      const oldScale = stage.scaleX();
-      const pointer = stage.getPointerPosition() || { x: 0, y: 0 };
-      const scaleBy = 1.05;
-
-      const direction = e.evt.deltaY > 0 ? -1 : 1;
-      const newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
-
-      const mousePointTo = {
-        x: pointer.x / oldScale - stage.x() / oldScale,
-        y: pointer.y / oldScale - stage.y() / oldScale,
-      };
-
-      stage.scale({ x: newScale, y: newScale });
-
-      const newPos = {
-        x: -(mousePointTo.x - pointer.x / newScale) * newScale,
-        y: -(mousePointTo.y - pointer.y / newScale) * newScale,
-      };
-
-      stage.position(newPos);
-    }
-    const ref = screenContext?.getScreenContainerRef();
-
-    const leftWidth = Math.min(initX * stage.scale().x + stage.x());
-    const rightWidth = size.width - (leftWidth + videoWidth * stage.scale().x);
-    const topHeight = initHeight * stage.scale().y + stage.y();
-    const bottomHeight =
-      size.height - (topHeight + videoHeight * stage.scale().y);
-    ref?.style.setProperty("--left-width", `${leftWidth}px`);
-    ref?.style.setProperty("--right-width", `${rightWidth}px`);
-    ref?.style.setProperty("--top-height", `${topHeight}px`);
-    ref?.style.setProperty("--bottom-height", `${bottomHeight}px`);
+  /* -------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------- */
+  const resetTransformer = () => {
+    animateTransformer(
+      selectableDiv.current,
+      {
+        left: 0,
+        top: 0,
+        width: 0,
+        height: 0,
+        transform: "translate(0px, 0px)",
+      },
+      { duration: 0 },
+    );
+    dragDistance.current = dragInit;
   };
 
-  const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    const isClickable = e?.target?.getAttr<boolean>("isClickable");
-    console.log("stage clicked", isClickable, e.target, e.currentTarget);
+  /* -------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------- */
+  const handleMouseMove: MouseEventHandler<HTMLDivElement> = async (event) => {
+    const { x, y } = getRelativeCoordinates(event);
+    const dragData = dragDistance.current;
+    if (isControlPressed.current) {
+      const changeRate = window.devicePixelRatio || 1;
+      const xOrigin = 0.5;
+      const yOrigin = 0.5;
 
-    if (isClickable) {
-      transferRef?.current?.nodes([e.target!]);
-      selectNode(e.target?.getAttr<string>("id"));
+      const lockYAxis = dragData.position === "center-left" || dragData.position === "center-right";
+      const lockXAxis = dragData.position === "top-center" || dragData.position === "bottom-center";
+      const reverseMouseYDirection = dragData.position === "center-right";
+      const reverseMouseXDirection = dragData.position === "bottom-center";
+
+      // indicates if a positive width value mean increase in width
+      const isXPositive = dragData.position === "top-left" || dragData.position === "bottom-left";
+      const isYPositive = dragData.position === "top-right" || dragData.position === "top-left";
+
+      // calculate the distance moved from the initial click point
+      const deltaX = lockXAxis
+        ? 0
+        : (event.clientX - dragData.startClientX) * changeRate * (reverseMouseYDirection ? -1 : 1);
+      const deltaY = lockYAxis
+        ? 0
+        : (event.clientY - dragData.startClientY) * changeRate * (reverseMouseXDirection ? -1 : 1);
+
+      // Width and height of the transformer shape
+      const transformerWidth = dragData.shapeWidth + selectionAllowance;
+      const transformerHeight = dragData.shapeHeight + selectionAllowance;
+
+      // Calculate the scale factors
+      const scaleX = (dragData.shapeWidth + -deltaX) / dragData.shapeWidth;
+      const scaleY = (dragData.shapeHeight + -deltaY) / dragData.shapeHeight;
+
+      const scaledTransformerWidth = ((dragData.xDirection || 0) + scaleX) * transformerWidth;
+      const scaledTransformerHeight = ((dragData.yDirection || 0) + scaleY) * transformerHeight;
+
+      // Determine if we need to flip the shape based on the direction of the drag
+      // If the user drags past the original position, we flip the shape
+      const shouldFlipX = isXPositive ? scaledTransformerWidth < 2 : scaledTransformerWidth > -2;
+      const shouldFlipY = isYPositive ? scaledTransformerHeight < 2 : scaledTransformerHeight > -2;
+
+      const diffWidth = Math.abs(scaledTransformerWidth) - transformerWidth;
+      const diffHeight = Math.abs(scaledTransformerHeight) - transformerHeight;
+
+      const translateX = -diffWidth * xOrigin;
+      const translateY = -diffHeight * yOrigin;
+
+      // Animate the transformer div to reflect the new size and position
+      animateTransformer(
+        selectableDiv.current,
+        {
+          width: `${Math.abs(scaledTransformerWidth)}px`,
+          height: `${Math.abs(scaledTransformerHeight)}px`,
+          transform: `translate(${translateX}px, ${translateY}px) scaleX(${shouldFlipX ? -1 : 1}) scaleY(${shouldFlipY ? -1 : 1})`,
+        },
+        { duration: 0 },
+      );
+      await canvasContext.modifyShape(dragData.id, {
+        scaleX: ((shouldFlipX ? 1 : -1) * scaledTransformerWidth) / transformerWidth,
+        scaleY: ((shouldFlipY ? -1 : 1) * scaledTransformerHeight) / transformerHeight,
+      });
       return;
     }
-    transferRef?.current?.nodes([]);
-    selectNode(undefined);
+    if (isDragging.current) {
+      // const _x = x - dragData.startX;
+      // const _y = y - dragData.startY;
+      // left.set(_x);
+      // top.set(_y);
+      // await canvasContext.modifyShape(dragData.id, { x: _x, y: _y });
+    }
   };
 
-  /* -------------------------------------------------------------------------- */
-  /* -------------------------------------------------------------------------- */
   useEffect(() => {
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
-        setSize(
-          produce((draft) => {
-            draft.width = width;
-            draft.height = height;
-          }),
-        );
-        screenContext?.fitStageToViewport();
+        if (canvasNode.current) {
+          canvasContext.onCanvasResize(width, height);
+        }
       }
     });
-    const screenContainerRef = screenContext?.getScreenContainerRef();
-    if (screenContainerRef) resizeObserver.observe(screenContainerRef);
+    if (canvasNode.current) {
+      resizeObserver.observe(canvasNode.current);
+    }
     return () => {
       resizeObserver.disconnect();
     };
-  }, [screenContext]);
-  /* -------------------------------------------------------------------------- */
-  /* -------------------------------------------------------------------------- */
+  }, [canvasContext]);
+
   return (
     <div
-      className="relative h-full bg-white"
-      ref={screenContext?.saveScreenContainerRef}
-      style={
-        {
-          "--init-x": `${initX}px`,
-          "--init-y": `${initHeight}px`,
-          "--left-width": `${initX}px`,
-          "--right-width": `${initX}px`,
-          "--top-height": `${initHeight}px`,
-          "--bottom-height": `${initHeight}px`,
-        } as CSSProperties
-      }
+      className="relative h-full w-full"
+      onMouseDown={async (event) => {
+        const pos = getRelativeCoordinates(event);
+        const shapeCoordinates = await canvasContext.getShapeUsingCoordinates(pos.x, pos.y);
+        if (!shapeCoordinates) {
+          resetTransformer();
+          return;
+        }
+        left.set(shapeCoordinates.x - selectionAllowance / 2);
+        top.set(shapeCoordinates.y - selectionAllowance / 2);
+        width.set(shapeCoordinates.shapeWidth + selectionAllowance);
+        height.set(shapeCoordinates.shapeHeight + selectionAllowance);
+        isDragging.current = true;
+        dragDistance.current = {
+          ...dragDistance.current,
+          startX: pos.x,
+          startY: pos.y,
+          offsetX: pos.x - shapeCoordinates.x,
+          offsetY: pos.y - shapeCoordinates.y,
+          startClientX: event.clientX,
+          startClientY: event.clientY,
+          id: shapeCoordinates.id,
+          shapeWidth: shapeCoordinates.shapeWidth,
+          shapeHeight: shapeCoordinates.shapeHeight,
+        };
+      }}
+      onMouseUp={() => {
+        isDragging.current = false;
+        isControlPressed.current = false;
+      }}
+      onMouseMove={handleMouseMove}
     >
-      <div
-        className="pointer-events-none absolute top-0 z-20 bg-white opacity-75"
-        style={{
-          width: "calc(100% - var(--left-width) - var(--right-width))",
-          height: "calc(var(--top-height))",
-          left: "calc(var(--left-width))",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute bottom-0 z-20 bg-white opacity-75"
-        style={{
-          width: "calc(100% - var(--left-width) - var(--right-width))",
-          height: "calc(var(--bottom-height))",
-          left: "calc(var(--left-width))",
-        }}
-      />
+      {/* <div
+        id="test"
+        className="absolute top-[300px] left-[100px] z-50 h-[100px] w-[1000px] bg-red-500"
+      /> */}
       <motion.div
-        className="pointer-events-none z-20 bg-white opacity-75"
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          width: "calc(var(--left-width))",
-          height: size.height,
-        }}
-      />
-      <motion.div
-        className="pointer-events-none z-20 bg-white opacity-75"
-        style={{
-          position: "absolute",
-          right: 0,
-          top: 0,
-          width: "calc(var(--right-width))",
-          height: size.height,
-        }}
-      />
-      <motion.div
-        ref={ref}
-        className="pointer-events-none absolute top-0 left-0 z-20 h-full w-full"
-      ></motion.div>
+        style={{ top, left, width, height }}
+        className="absolute top-0 left-0 z-10 border-2 border-white"
+        ref={selectableDiv}
+      >
+        {transformersData.map((e) => {
+          const top = e.yPosition === "top" ? "0%" : e.yPosition === "center" ? "50%" : `100%`;
+          const left = e.xPosition === "left" ? "0%" : e.xPosition === "center" ? "50%" : `100%`;
+          return (
+            <div
+              key={`${e.yPosition}-${e.xPosition}`}
+              style={{ top, left }}
+              className="absolute size-[12px] -translate-1/2 rounded-full bg-white"
+              onMouseDown={(event) => {
+                event.currentTarget.style.backgroundColor = "lightgrey";
+                isControlPressed.current = true;
+                event.stopPropagation();
+                dragDistance.current = {
+                  ...dragDistance.current,
+                  startClientX: event.clientX,
+                  startClientY: event.clientY,
+                  xDirection: e.x || 0,
+                  yDirection: e.y || 0,
+                  disableTranslateX: e.disableTranslateX || false,
+                  position: `${e.yPosition}-${e.xPosition}`,
+                };
+              }}
+            />
+          );
+        })}
+      </motion.div>
       <canvas
-        width={size.width}
-        height={size.height}
-        className=""
-        // draggable
-
-        ref={async (node) => {
-          if (size.width === 0 || size.height === 0 || !node) return;
-          const canvas = new Canvas(node);
-          const rect = new Rect({
-            width: 500,
-            height: 500,
-            left: 0,
-            top: 0,
-            stroke: "#ff00ff",
-            strokeWidth: 5,
-            fill: "#00ff00",
-            selectable: false,
-            evented: false, // ignores mouse/touch
-            hasControls: false, // no resize/rotate
-            hoverCursor: "default",
-          });
-
-          const demoImg =
-            "https://pixabay.com/get/ge8ea5e853664bf3fb137a83fb4ab73787d119126aa48cde34dfb78cd2e82ba10f77503ed322b7b3f9af815e20c9848c48d2a176cb6b4627896d6d50d6df952c4_640.png";
-
-          let radius = 300;
-
-          console.log({ demoImg });
-
-          // const image = new Image();
-          // image.crossOrigin = "anonymous";
-          // image.src = demoImg;
-
-          // await new Promise((resolve) => {
-          //   image.onload = () => {
-          //     resolve(true);
-          //   };
-          // });
-          const imgBlob = await (
-            await fetch(demoImg, {
-              method: "GET",
-              headers: {
-                // ":path": "/assets/yoda.jpg",
-              },
-            })
-          ).blob();
-          const bitmapImage = await createImageBitmap(imgBlob);
-          console.log({ bitmapImage });
-          const img = new FabricImage(bitmapImage, {
-            dirty: true,
-            left: 0,
-            top: 0,
-            scaleX: 2, // gets wider
-            scaleY: 2, // gets taller
-            angle: 360, // spin while falling
-            skewX: 15, // tilt left/right
-            skewY: 5, // tilt top/bottom
-          });
-
-          console.log({ img });
-          canvas.add(img);
-          // canvas.add(rect);
-          canvas.renderAll();
+        className="absolute h-full w-full bg-black"
+        ref={(node) => {
+          if (node && !canvasNode.current) {
+            registerWorker(node);
+          }
         }}
-      ></canvas>
+      />
     </div>
   );
 }
 
-const SelectShapeTransformer = (props: {
-  saveRef: (node: Konva.Transformer | null) => void;
-}) => {
-  const transforRef = useRef<Konva.Transformer>(null);
-  const selectedNodeId = useAppSelector((state) => state.shapes.selectedNodeId);
-
-  if (!selectedNodeId) {
-    transforRef.current?.nodes([]);
-  }
-
-  return (
-    <Transformer
-      ignoreStroke
-      ref={function (node) {
-        if (node) {
-          transforRef.current = node;
-          props.saveRef(node);
-        }
-      }}
-      borderStroke="#000"
-      borderStrokeWidth={3}
-      anchorFill="#fff"
-      anchorStroke="#000"
-      anchorStrokeWidth={2}
-      anchorSize={10}
-      anchorCornerRadius={0}
-      anchorStyleFunc={(anchor) => {
-        anchor.fill("#ffffff");
-      }}
-    />
-  );
+type ITransformersData = {
+  allowedDirections?: ("x" | "y")[];
+  x?: number;
+  y?: number;
+  yPosition: "top" | "center" | "bottom";
+  xPosition: "left" | "center" | "right";
+  disableTranslateX?: boolean;
 };
+
+const getRelativeCoordinates = (event: React.MouseEvent<HTMLElement, MouseEvent>) => {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  return { x, y };
+};
+
+const dragInit = {
+  startClientX: 0,
+  startClientY: 0,
+  startX: 0,
+  startY: 0,
+  offsetX: 0,
+  offsetY: 0,
+  shapeHeight: 0,
+  shapeWidth: 0,
+  xDirection: 0,
+  yDirection: 0,
+  disableTranslateX: false,
+  position: "top-left" as `${ITransformersData["yPosition"]}-${ITransformersData["xPosition"]}`,
+  id: "",
+};
+
+const transformersData: ITransformersData[] = [
+  {
+    //top-left
+    yPosition: "top",
+    xPosition: "left",
+  },
+  {
+    //top-center
+    yPosition: "top",
+    xPosition: "center",
+    allowedDirections: ["x"],
+  },
+  {
+    //top-right
+    yPosition: "top",
+    xPosition: "right",
+    x: -2,
+    disableTranslateX: true,
+  },
+  {
+    //middle-left
+    yPosition: "center",
+    xPosition: "left",
+    allowedDirections: ["y"],
+  },
+  {
+    //middle-right
+    yPosition: "center",
+    xPosition: "right",
+    allowedDirections: ["y"],
+  },
+  { y: -2, yPosition: "bottom", xPosition: "left" }, //bottom-left
+  {
+    //bottom-center
+    yPosition: "bottom",
+    xPosition: "center",
+    allowedDirections: ["x"],
+  },
+  {
+    //bottom-right
+    yPosition: "bottom",
+    xPosition: "right",
+    x: -2,
+    y: -2,
+    disableTranslateX: true,
+  },
+];
 
 export default Screen;

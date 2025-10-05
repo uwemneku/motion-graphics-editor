@@ -5,7 +5,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
 import AppLayout from "./app/canvas/layout.tsx";
-import ScreenContextProvider from "./app/context/screenContext/provider.tsx";
+import CanvasWorkerProvider from "./app/features/screen/canvas-worker-context.tsx";
 import ShapesRecordContextProvider from "./app/features/shapes/context.tsx";
 import TimeLineContextProvider from "./app/features/timeline/context/index.tsx";
 import { store } from "./app/store/index.ts";
@@ -17,13 +17,13 @@ gsap.registerPlugin(GSDevTools);
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <Provider store={store}>
-      <ScreenContextProvider>
+      <CanvasWorkerProvider>
         <ShapesRecordContextProvider>
           <TimeLineContextProvider>
             <AppLayout />
           </TimeLineContextProvider>
         </ShapesRecordContextProvider>
-      </ScreenContextProvider>
+      </CanvasWorkerProvider>
     </Provider>
   </StrictMode>,
 );

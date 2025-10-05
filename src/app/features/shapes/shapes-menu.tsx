@@ -1,23 +1,26 @@
 import { useAppDispatch } from "@/app/store";
 import { type ReactNode } from "react";
-import {
-  FaRegCircle,
-  FaRegImage,
-  FaRegSquare,
-  FaShapes,
-} from "react-icons/fa6";
+import { FaRegCircle, FaRegImage, FaRegSquare, FaShapes } from "react-icons/fa6";
 import { PiTextAaBold } from "react-icons/pi";
 import type { NodeType } from "../../../types";
+import { useCanvasWorkerContext } from "../screen/canvas-worker-context";
 import { addShape } from "./slice";
 
 function ShapePicker() {
   const dispatch = useAppDispatch();
+  const canvasContext = useCanvasWorkerContext();
 
   function handleAddNode(shape: NodeType) {
     return function () {
       switch (shape) {
         case "image":
         case "video":
+          break;
+        case "square":
+          canvasContext.createShape({ type: "rect" });
+          break;
+        case "circle":
+          canvasContext.createShape({ type: "circle" });
           break;
 
         default:
@@ -39,9 +42,7 @@ function ShapePicker() {
 
         const imgSrc = event.target?.result;
         if (typeof imgSrc === "string") {
-          dispatch(
-            addShape({ type: isVideo ? "video" : "image", src: imgSrc }),
-          );
+          dispatch(addShape({ type: isVideo ? "video" : "image", src: imgSrc }));
         }
       };
       reader.readAsDataURL(file);
