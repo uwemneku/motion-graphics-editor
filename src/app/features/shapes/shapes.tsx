@@ -6,13 +6,7 @@ import type { ImageConfig } from "konva/lib/shapes/Image";
 import type { Transformer } from "konva/lib/shapes/Transformer";
 import { ALL_FORMATS, BlobSource, Input, VideoSampleSink } from "mediabunny";
 import { motion, useMotionValue } from "motion/react";
-import {
-  Fragment,
-  useRef,
-  useState,
-  type ComponentProps,
-  type ReactNode,
-} from "react";
+import { Fragment, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { MdDelete } from "react-icons/md";
 import { Circle, Image, Rect, Text } from "react-konva";
 import { Html } from "react-konva-utils";
@@ -35,9 +29,7 @@ function AppShapes(props: Props) {
   const shapeDetails = useAppSelector((state) => state.shapes.data[props.id]);
   console.log({ shapeDetails });
 
-  const isSelected = useAppSelector(
-    (state) => state.shapes.selectedNodeId === props.id,
-  );
+  const isSelected = useAppSelector((state) => state.shapes.selectedNodeId === props.id);
   //
   const hasAddedNode = useRef(false);
   const isFirstRender = useRef(true);
@@ -119,11 +111,7 @@ function AppShapes(props: Props) {
     });
   }
 
-  function handleTransformEnd(e: KonvaEventObject<Event, Node<NodeConfig>>) {
-    const scale = e?.target?.scale();
-    const width = e?.target?.width() * scale.x;
-    const height = e?.target?.height() * scale.y;
-  }
+  function handleTransformEnd(e: KonvaEventObject<Event, Node<NodeConfig>>) {}
 
   let node: ReactNode = null;
 
@@ -172,14 +160,10 @@ function AppShapes(props: Props) {
             // `frame` is a VideoFrame-like object (pixel data, timestamp, etc.)
             // You can draw it to a canvas, extract as image, etc.
             // e.g.:
-            const imageBitmap =
-              (await frame.toCanvasImageSource()) as VideoFrame;
+            const imageBitmap = (await frame.toCanvasImageSource()) as VideoFrame;
 
             // crate image blob link
-            const canvas = new OffscreenCanvas(
-              frame.displayWidth,
-              frame.displayHeight,
-            );
+            const canvas = new OffscreenCanvas(frame.displayWidth, frame.displayHeight);
             const ctx = canvas.getContext("2d")!;
 
             // Draw the frame onto canvas
@@ -216,10 +200,7 @@ function AppShapes(props: Props) {
           groupProps={{}}
           divProps={{ style: { zIndex: 30 } }}
           parentNodeFunc={() => {
-            return (
-              screenContext?.getStageNode()?.container() ||
-              (document.body as HTMLDivElement)
-            );
+            return screenContext?.getStageNode()?.container() || (document.body as HTMLDivElement);
           }}
         >
           <motion.div

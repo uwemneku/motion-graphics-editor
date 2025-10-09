@@ -1,49 +1,52 @@
 import { transfer } from "comlink";
-import { createContext, useContext, type PropsWithChildren } from "react";
-import canvasWorkerProxy from "../web-workers/main-thread-exports";
-import type { IOffscreenRenderer } from "../web-workers/types";
+import { createContext, useContext, useRef, useState, type PropsWithChildren } from "react";
+import { App } from "../shapes/rectangle";
+import CanvasWorkerProxy from "../web-workers/main-thread-exports";
+
+type WrapClassMethodInPromise<T> = {
+  [K in keyof T]: T[K] extends (...args: any[]) => any
+    ? (...args: Parameters<T[K]>) => Promise<ReturnType<T[K]>>
+    : T[K];
+};
 
 type ICanvasWorkerContext = {
-  [key in keyof IOffscreenRenderer]: IOffscreenRenderer[key] extends (
-    ...args: any[]
-  ) => any
-    ? (
-        ...args: Parameters<IOffscreenRenderer[key]>
-      ) => Promise<ReturnType<IOffscreenRenderer[key]>>
-    : IOffscreenRenderer[key];
+  initializeCanvasWorker: (
+    offscreenCanvas: OffscreenCanvas,
+    width: number,
+    height: number,
+    pixelRatio: number,
+  ) => void;
+  app?: WrapClassMethodInPromise<App>;
 };
+
 const CanvasWorkerContext = createContext<ICanvasWorkerContext>({
-  async createShape() {
-    return { id: "" };
-  },
-  async init() {},
-  async onCanvasResize() {},
-  async onCanvasMouseMove() {},
-  async getShapeUsingCoordinates() {},
-  async modifyShape() {},
+  initializeCanvasWorker() {},
 });
+
 function CanvasWorkerProvider(props: PropsWithChildren) {
-  const initializeCanvasWorker: ICanvasWorkerContext["init"] = async (
-    offscreenCanvas,
-    width,
-    height,
+  const app = useRef<WrapClassMethodInPromise<App>>(undefined);
+  const [trigger, setTrigger] = useState(0);
+
+  const initializeCanvasWorker: ICanvasWorkerContext["initializeCanvasWorker"] = async (
+    offscreenCanvas: OffscreenCanvas,
+    width: number,
+    height: number,
+    pixelRatio,
   ) => {
-    await canvasWorkerProxy.init(
+    app.current = await new CanvasWorkerProxy(
       transfer(offscreenCanvas, [offscreenCanvas]),
       width,
       height,
-      window.devicePixelRatio,
+      pixelRatio,
     );
+    setTrigger((prev) => prev + 1);
   };
+
   return (
     <CanvasWorkerContext.Provider
       value={{
-        createShape: canvasWorkerProxy.createShape,
-        init: initializeCanvasWorker,
-        onCanvasResize: canvasWorkerProxy.onCanvasResize,
-        onCanvasMouseMove: canvasWorkerProxy.onCanvasMouseMove,
-        getShapeUsingCoordinates: canvasWorkerProxy.getShapeUsingCoordinates,
-        modifyShape: canvasWorkerProxy.modifyShape,
+        initializeCanvasWorker,
+        app: app.current,
       }}
     >
       {props.children}

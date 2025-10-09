@@ -1,7 +1,7 @@
 import { wrap, type Remote } from "comlink";
+import type { App } from "../shapes/rectangle";
 import offscreenWorker from "./canvas-worker?worker";
-import type { IOffscreenRenderer } from "./types";
 const workerInstance = new offscreenWorker();
-const canvasWorkerProxy = wrap<Remote<IOffscreenRenderer>>(workerInstance);
+const CanvasWorkerProxy = wrap<Remote<App>>(workerInstance);
 
-export default canvasWorkerProxy;
+export default CanvasWorkerProxy;

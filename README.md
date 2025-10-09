@@ -1,5 +1,7 @@
 # Notes
 
+- Trying resizing instead of scaling
+
 01/10/24
 
 - Was having issues where videos generated with a worker looked very pixelated, turns out it was because the  [pixelRatio](https://konvajs.org/api/Konva.Canvas.html#getPixelRatio) on the main thread is 2 but on a worker it had a value of 1.

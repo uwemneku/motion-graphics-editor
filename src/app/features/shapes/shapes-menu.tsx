@@ -1,4 +1,5 @@
 import { useAppDispatch } from "@/app/store";
+import { transfer } from "comlink";
 import { type ReactNode } from "react";
 import { FaRegCircle, FaRegImage, FaRegSquare, FaShapes } from "react-icons/fa6";
 import { PiTextAaBold } from "react-icons/pi";
@@ -8,7 +9,7 @@ import { addShape } from "./slice";
 
 function ShapePicker() {
   const dispatch = useAppDispatch();
-  const canvasContext = useCanvasWorkerContext();
+  const app = useCanvasWorkerContext().app;
 
   function handleAddNode(shape: NodeType) {
     return function () {
@@ -17,10 +18,10 @@ function ShapePicker() {
         case "video":
           break;
         case "square":
-          canvasContext.createShape({ type: "rect" });
+          app?.createShape({ type: "rect", width: 200, height: 200, borderWidth: 0 });
           break;
         case "circle":
-          canvasContext.createShape({ type: "circle" });
+          // app?.createShape({ type: "circle" });
           break;
 
         default:
@@ -35,14 +36,42 @@ function ShapePicker() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = function (event) {
+      reader.onload = async function (event) {
         // check of file is video
         const isVideo = file.type.startsWith("video/");
         console.log({ isVideo });
 
         const imgSrc = event.target?.result;
         if (typeof imgSrc === "string") {
-          dispatch(addShape({ type: isVideo ? "video" : "image", src: imgSrc }));
+          const image = new Image();
+          image.src = imgSrc;
+          await image.decode();
+          const bitmapImage = await createImageBitmap(image);
+          let width = image.width;
+          let height = image.height;
+          const aspectRation = width / height;
+          const isLandscape = image.width > image.height;
+          const maxWidth = document.body.clientWidth * 0.2;
+          const maxHeight = document.body.clientHeight * 0.6;
+          const shouldScale = isLandscape ? width > maxWidth : height > maxHeight;
+
+          // ensure image is always in screen
+          if (shouldScale) {
+            if (isLandscape) {
+              width = maxWidth;
+              height = maxWidth / aspectRation;
+            } else {
+              height = maxHeight;
+              width = maxHeight * aspectRation;
+            }
+          }
+
+          app?.createShape({
+            type: "image",
+            width: width,
+            height: height,
+            src: transfer(bitmapImage, [bitmapImage]),
+          });
         }
       };
       reader.readAsDataURL(file);

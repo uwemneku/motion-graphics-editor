@@ -1,10 +1,10 @@
 export type ShapeArgs = {
-  rect: { width?: number; height?: number };
-  circle: { radius?: number };
-  image: { src: string; width?: number; height?: number };
+  rect: { width: number; height: number };
+  circle: { radius: number };
+  image: { src: ImageBitmap; width: number; height: number };
 };
 export type CreateShapeArgs = {
-  [K in keyof ShapeArgs]: ShapeArgs[K] & { type: K; x?: number; y?: number };
+  [K in keyof ShapeArgs]: ShapeArgs[K] & { type: K; x?: number; y?: number; borderWidth?: number };
 }[keyof ShapeArgs];
 export type OffscreenCanvasInit = (
   canvas: OffscreenCanvas,

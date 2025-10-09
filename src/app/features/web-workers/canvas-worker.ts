@@ -16,6 +16,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
+import { App } from "../shapes/rectangle";
 import type { IOffscreenRenderer } from "./types";
 
 let threeJsRenderer: WebGLRenderer;
@@ -26,6 +27,7 @@ let camera: PerspectiveCamera;
 let pixelRatio = 1;
 
 const shapeMap = new Map<string, Mesh | Group>();
+let app: App;
 
 const offScreenRenderer: IOffscreenRenderer["init"] = (
   offscreenCanvas,
@@ -33,6 +35,7 @@ const offScreenRenderer: IOffscreenRenderer["init"] = (
   height,
   devicePixelRatio = 1,
 ) => {
+  app = new App(offscreenCanvas, width, height, devicePixelRatio);
   console.log("Offscreen canvas initialized", { offscreenCanvas });
   //
   pixelRatio = devicePixelRatio || 1;
@@ -87,9 +90,9 @@ const onCanvasResize = (width: number, height: number) => {
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
-const createRectangle = (width: number, height: number, border: number) => {
+const createRectangle = (width: number, height: number, border: number = 0) => {
   const group = new Group();
-  const borderThickness = width * 0.02;
+  const borderThickness = border;
 
   // main rect
   const geometry = new PlaneGeometry(width, height);
@@ -103,7 +106,9 @@ const createRectangle = (width: number, height: number, border: number) => {
     new MeshBasicMaterial({ color: "0xffffff", opacity: 1, transparent: true }),
   );
   topBorder.position.y = height / 2 - borderThickness / 2;
+  topBorder.userData.isBorder = true;
   group.add(topBorder);
+  console.log(topBorder.geometry.attributes?.position);
 
   // Bottom border
   const bottomBorder = new Mesh(
@@ -111,6 +116,8 @@ const createRectangle = (width: number, height: number, border: number) => {
     new MeshBasicMaterial({ color: "0xffffff", opacity: 1, transparent: true }),
   );
   bottomBorder.position.y = -height / 2 + borderThickness / 2;
+  bottomBorder.userData.isBorder = true;
+
   group.add(bottomBorder);
 
   // left border
@@ -123,6 +130,7 @@ const createRectangle = (width: number, height: number, border: number) => {
     }),
   );
   leftBorder.position.x = -width / 2 + borderThickness / 2;
+  leftBorder.userData.isBorder = true;
   group.add(leftBorder);
 
   // left border
@@ -135,6 +143,7 @@ const createRectangle = (width: number, height: number, border: number) => {
     }),
   );
   rightBorder.position.x = width / 2 - borderThickness / 2;
+  rightBorder.userData.isBorder = true;
   group.add(rightBorder);
 
   scene.add(group);
@@ -154,6 +163,7 @@ const createCircle = (radius: number) => {
     new RingGeometry(radius - borderWidth / 2, radius + borderWidth / 2, 128),
     new MeshBasicMaterial({ color: "red", side: DoubleSide }),
   );
+  circleBorder.userData.isBorder = true;
   group.add(circleBorder);
 
   scene.add(group);
@@ -171,7 +181,8 @@ const createShape: IOffscreenRenderer["createShape"] = (args) => {
     case "rect":
       {
         const { _w, _H } = getRelativeSize(args.width || 1000, args.height || 200, "world");
-        const rect = createRectangle(_w, _H, 5);
+        const { _w: b } = getRelativeSize(5, 0, "world");
+        const rect = createRectangle(_w, _H, b);
         shape = rect;
       }
       break;
@@ -206,7 +217,7 @@ const createShape: IOffscreenRenderer["createShape"] = (args) => {
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
-const handleMouseMove = (x: number, y: number) => {
+const getShapeAtCoordinates = (x: number, y: number) => {
   const pixelRatio = threeJsRenderer.getPixelRatio();
 
   const width = threeJsRenderer.domElement.width / pixelRatio;
@@ -247,8 +258,6 @@ const handleMouseMove = (x: number, y: number) => {
     const shapeWidth = size.x;
     const shapeHeight = size.y;
     const canvasShapeSize = getRelativeSize(shapeWidth, shapeHeight, "canvas");
-    console.log({ canvasShapeSize });
-    console.log({ canvasX, canvasY });
 
     const shapeData = {
       id: shape.userData.id,
@@ -263,6 +272,16 @@ const handleMouseMove = (x: number, y: number) => {
     return shapeData;
   }
 };
+function getPixelToWorldRatio(objectZ = 0) {
+  const distance = Math.abs(camera.position.z - objectZ);
+  const vFOV = (camera.fov * Math.PI) / 180;
+  const height = 2 * Math.tan(vFOV / 2) * distance;
+
+  return {
+    x: (height * camera.aspect) / threeJsRenderer.domElement.width,
+    y: height / threeJsRenderer.domElement.height,
+  };
+}
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 const modifyShape: IOffscreenRenderer["modifyShape"] = (id, args) => {
@@ -271,20 +290,34 @@ const modifyShape: IOffscreenRenderer["modifyShape"] = (id, args) => {
     console.warn("Shape not found", id);
     return;
   }
+  const box = new Box3().setFromObject(shape as unknown as Object3D);
+  const size = box.getSize(new Vector3());
+  const ratio = getPixelToWorldRatio(shape.position.z);
+  const canvasShapeSize = getRelativeSize(size.x, size.y, "canvas");
 
   if (args.x !== undefined) {
-    const { _w: _x } = getRelativeSize(args.x, 0, "world");
-    shape.position.x = _x;
+    // const { _w: _x } = getRelativeSize(args.x, 0, "world");
+    shape.position.x += args.x * ratio.x;
   }
   if (args.y !== undefined) {
     const { _H: _y } = getRelativeSize(0, args.y, "world");
-    shape.position.y = -_y; // Invert y to match canvas coordinates
+    shape.position.y += -args.y * ratio.y; // Invert y to match canvas coordinates
   }
-  if (args.scaleX !== undefined) {
+  if (args.scaleX) {
     shape.scale.x = args.scaleX;
+    shape.children.forEach((i) => {
+      if (i.userData.isBorder) {
+        // i.scale.x = 1 / args.scaleX;
+      }
+    });
   }
   if (args.scaleY !== undefined) {
     shape.scale.y = args.scaleY;
+    shape.children.forEach((i) => {
+      if (i.userData.isBorder) {
+        // i.scale.y = 1 / args.scaleY;
+      }
+    });
   }
   animate();
 };
@@ -298,10 +331,10 @@ export const exposedFunctions: IOffscreenRenderer = {
   createShape,
   onCanvasResize,
   init: offScreenRenderer,
-  onCanvasMouseMove: handleMouseMove,
-  getShapeUsingCoordinates: (x: number, y: number) => handleMouseMove(x, y),
+  onCanvasMouseMove: getShapeAtCoordinates,
+  getShapeUsingCoordinates: (x: number, y: number) => getShapeAtCoordinates(x, y),
   modifyShape,
 };
 export type WorkerAPI = typeof exposedFunctions;
 
-expose(exposedFunctions);
+expose(App);

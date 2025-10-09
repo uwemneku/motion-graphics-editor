@@ -44,7 +44,7 @@ type NodeArgs = {
   circle: void;
   square: void;
   rectangle: void;
-  image: { src: string };
+  image: { image: ImageBitmap };
   text: void;
   video: { src: string };
 };

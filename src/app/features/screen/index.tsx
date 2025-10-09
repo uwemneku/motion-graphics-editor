@@ -1,9 +1,10 @@
-import { motion, useAnimate, useMotionValue } from "motion/react";
+import { useAnimate, useMotionValue } from "motion/react";
 import { useEffect, useRef, type MouseEventHandler } from "react";
 import { useCanvasWorkerContext } from "./canvas-worker-context";
 
 function Screen() {
   const canvasContext = useCanvasWorkerContext();
+  const app = canvasContext.app;
   const canvasNode = useRef<HTMLCanvasElement>(null);
   const [selectableDiv, animateTransformer] = useAnimate<HTMLDivElement>();
   const isControlPressed = useRef(false);
@@ -11,8 +12,7 @@ function Screen() {
   const dragDistance = useRef(dragInit);
   const left = useMotionValue(0);
   const top = useMotionValue(0);
-  const width = useMotionValue(0);
-  const height = useMotionValue(0);
+  // const isMoving =
 
   const selectionAllowance = 0; // px
 
@@ -23,33 +23,34 @@ function Screen() {
     const width = node.clientWidth;
 
     const offscreenCanvas = node?.transferControlToOffscreen();
-    await canvasContext.init(offscreenCanvas, width, height, window.devicePixelRatio || 1);
-  };
-
-  /* -------------------------------------------------------------------------- */
-  /* -------------------------------------------------------------------------- */
-  const resetTransformer = () => {
-    animateTransformer(
-      selectableDiv.current,
-      {
-        left: 0,
-        top: 0,
-        width: 0,
-        height: 0,
-        transform: "translate(0px, 0px)",
-      },
-      { duration: 0 },
+    await canvasContext.initializeCanvasWorker(
+      offscreenCanvas,
+      width,
+      height,
+      window.devicePixelRatio || 1,
     );
-    dragDistance.current = dragInit;
   };
 
   /* -------------------------------------------------------------------------- */
   /* -------------------------------------------------------------------------- */
   const handleMouseMove: MouseEventHandler<HTMLDivElement> = async (event) => {
-    const { x, y } = getRelativeCoordinates(event);
     const dragData = dragDistance.current;
+    const change = {
+      x: dragData.startClientX - event.clientX,
+      y: dragData.startClientY - event.clientY,
+    };
+    app?.onMouseMove(
+      change,
+      event.movementX,
+      event.movementY,
+      isControlPressed.current,
+      event.shiftKey,
+    );
+    return;
+    const { x, y } = getRelativeCoordinates(event);
+    const changeRate = window.devicePixelRatio || 1;
+
     if (isControlPressed.current) {
-      const changeRate = window.devicePixelRatio || 1;
       const xOrigin = 0.5;
       const yOrigin = 0.5;
 
@@ -70,13 +71,13 @@ function Screen() {
         ? 0
         : (event.clientY - dragData.startClientY) * changeRate * (reverseMouseXDirection ? -1 : 1);
 
-      // Width and height of the transformer shape
-      const transformerWidth = dragData.shapeWidth + selectionAllowance;
-      const transformerHeight = dragData.shapeHeight + selectionAllowance;
-
       // Calculate the scale factors
       const scaleX = (dragData.shapeWidth + -deltaX) / dragData.shapeWidth;
       const scaleY = (dragData.shapeHeight + -deltaY) / dragData.shapeHeight;
+
+      // Width and height of the transformer shape
+      const transformerWidth = dragData.shapeWidth + selectionAllowance;
+      const transformerHeight = dragData.shapeHeight + selectionAllowance;
 
       const scaledTransformerWidth = ((dragData.xDirection || 0) + scaleX) * transformerWidth;
       const scaledTransformerHeight = ((dragData.yDirection || 0) + scaleY) * transformerHeight;
@@ -102,18 +103,24 @@ function Screen() {
         },
         { duration: 0 },
       );
-      await canvasContext.modifyShape(dragData.id, {
-        scaleX: ((shouldFlipX ? 1 : -1) * scaledTransformerWidth) / transformerWidth,
-        scaleY: ((shouldFlipY ? -1 : 1) * scaledTransformerHeight) / transformerHeight,
+      const shapeScaleX = ((shouldFlipX ? 1 : -1) * scaledTransformerWidth) / transformerWidth;
+      const shapeScaleY = ((shouldFlipY ? -1 : 1) * scaledTransformerHeight) / transformerHeight;
+
+      await app?.transformShape(dragData.id, {
+        scaleX: shapeScaleX,
+        scaleY: shapeScaleY,
       });
       return;
     }
     if (isDragging.current) {
-      // const _x = x - dragData.startX;
-      // const _y = y - dragData.startY;
-      // left.set(_x);
-      // top.set(_y);
-      // await canvasContext.modifyShape(dragData.id, { x: _x, y: _y });
+      const _x = left.get() + event.movementX;
+      const _y = top.get() + event.movementY;
+      left.set(_x);
+      top.set(_y);
+      await app?.transformShape(dragData.id, {
+        xChange: event.movementX * changeRate,
+        yChange: event.movementY * changeRate,
+      });
     }
   };
 
@@ -122,7 +129,7 @@ function Screen() {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         if (canvasNode.current) {
-          canvasContext.onCanvasResize(width, height);
+          canvasContext.app?.fitCanvas(width, height);
         }
       }
     });
@@ -138,29 +145,16 @@ function Screen() {
     <div
       className="relative h-full w-full"
       onMouseDown={async (event) => {
-        const pos = getRelativeCoordinates(event);
-        const shapeCoordinates = await canvasContext.getShapeUsingCoordinates(pos.x, pos.y);
-        if (!shapeCoordinates) {
-          resetTransformer();
-          return;
-        }
-        left.set(shapeCoordinates.x - selectionAllowance / 2);
-        top.set(shapeCoordinates.y - selectionAllowance / 2);
-        width.set(shapeCoordinates.shapeWidth + selectionAllowance);
-        height.set(shapeCoordinates.shapeHeight + selectionAllowance);
-        isDragging.current = true;
         dragDistance.current = {
           ...dragDistance.current,
-          startX: pos.x,
-          startY: pos.y,
-          offsetX: pos.x - shapeCoordinates.x,
-          offsetY: pos.y - shapeCoordinates.y,
           startClientX: event.clientX,
           startClientY: event.clientY,
-          id: shapeCoordinates.id,
-          shapeWidth: shapeCoordinates.shapeWidth,
-          shapeHeight: shapeCoordinates.shapeHeight,
         };
+        const pos = getRelativeCoordinates(event);
+        await canvasContext.app?.getShapeAtCoordinate(pos.x, pos.y);
+        isControlPressed.current = true;
+
+        return;
       }}
       onMouseUp={() => {
         isDragging.current = false;
@@ -168,41 +162,6 @@ function Screen() {
       }}
       onMouseMove={handleMouseMove}
     >
-      {/* <div
-        id="test"
-        className="absolute top-[300px] left-[100px] z-50 h-[100px] w-[1000px] bg-red-500"
-      /> */}
-      <motion.div
-        style={{ top, left, width, height }}
-        className="absolute top-0 left-0 z-10 border-2 border-white"
-        ref={selectableDiv}
-      >
-        {transformersData.map((e) => {
-          const top = e.yPosition === "top" ? "0%" : e.yPosition === "center" ? "50%" : `100%`;
-          const left = e.xPosition === "left" ? "0%" : e.xPosition === "center" ? "50%" : `100%`;
-          return (
-            <div
-              key={`${e.yPosition}-${e.xPosition}`}
-              style={{ top, left }}
-              className="absolute size-[12px] -translate-1/2 rounded-full bg-white"
-              onMouseDown={(event) => {
-                event.currentTarget.style.backgroundColor = "lightgrey";
-                isControlPressed.current = true;
-                event.stopPropagation();
-                dragDistance.current = {
-                  ...dragDistance.current,
-                  startClientX: event.clientX,
-                  startClientY: event.clientY,
-                  xDirection: e.x || 0,
-                  yDirection: e.y || 0,
-                  disableTranslateX: e.disableTranslateX || false,
-                  position: `${e.yPosition}-${e.xPosition}`,
-                };
-              }}
-            />
-          );
-        })}
-      </motion.div>
       <canvas
         className="absolute h-full w-full bg-black"
         ref={(node) => {
@@ -240,11 +199,16 @@ const dragInit = {
   offsetY: 0,
   shapeHeight: 0,
   shapeWidth: 0,
+  currentShapeWidth: 0,
   xDirection: 0,
   yDirection: 0,
   disableTranslateX: false,
   position: "top-left" as `${ITransformersData["yPosition"]}-${ITransformersData["xPosition"]}`,
   id: "",
+  scale: {
+    x: 1,
+    y: 1,
+  },
 };
 
 const transformersData: ITransformersData[] = [
