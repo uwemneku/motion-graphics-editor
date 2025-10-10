@@ -20,10 +20,7 @@ function Timeline() {
   const nodes = useAppSelector((state) => state.shapes.ids);
   const c = useScreenContext();
   const timelineRef = useRef<HTMLDivElement>(null);
-  const p = useTransform(
-    timeLineContext.motionValueTimelineProgress,
-    (v) => `${v * 100}%`,
-  );
+  const p = useTransform(timeLineContext.motionValueTimelineProgress, (v) => `${v * 100}%`);
   console.log("rendering");
 
   const onTimeLineClick = (e: React.MouseEvent) => {
@@ -56,9 +53,7 @@ function Timeline() {
             play
           </div>
         </div>
-        <div className="flex flex-1 justify-end">
-          {/* <AspectRatioButton /> */}
-        </div>
+        <div className="flex flex-1 justify-end">{/* <AspectRatioButton /> */}</div>
       </div>
       {/*  */}
       <div className="relative mr-4 flex-1">
@@ -73,16 +68,14 @@ function Timeline() {
             onMouseDown={onTimeLineClick}
             className="relative z-20 flex-1 bg-gray-400"
             onDrag={(e, info) => {
-              const boundindClient =
-                timelineRef.current?.getBoundingClientRect();
+              const boundindClient = timelineRef.current?.getBoundingClientRect();
               const post = Math.min(
                 Math.max(info.point.x - (boundindClient?.left || 0), 0),
                 boundindClient?.width || 0,
               );
               console.log(e.target);
 
-              const limit =
-                (post / (boundindClient?.width || 1)) * TIMELINE_DURATION;
+              const limit = (post / (boundindClient?.width || 1)) * TIMELINE_DURATION;
               timeLineContext.seek(limit, false);
               //
 
@@ -98,7 +91,7 @@ function Timeline() {
               style={{ width: p }}
               className="absolute top-0 left-0 flex h-4 border-b bg-gray-400"
             >
-              <motion.div className="absolute right-0 h-[200px] w-1 translate-x-1/2 bg-[orangered]" />
+              <motion.div className="absolute right-0 h-[150px] w-1 translate-x-1/2 bg-[orangered]" />
               <motion.div className="absolute right-0 size-4 translate-x-1/2 bg-[orangered]" />
             </motion.div>
             <div
@@ -115,7 +108,7 @@ function Timeline() {
                     </p>
                     <div
                       className="absolute top-4 right-0 h-full w-[0.5px] flex-1 -translate-x-1/2 bg-black"
-                      style={{ height: "200px" }}
+                      style={{ height: "150px" }}
                     />
                   </div>
                 </Fragment>
@@ -124,7 +117,7 @@ function Timeline() {
           </motion.div>
         </div>
 
-        <div className="relative h-[200px] flex-1 overflow-auto">
+        <div className="relative h-[150px] flex-1 overflow-auto">
           {nodes?.map((id) => (
             <NodeKeyFrames key={id} id={id} />
           ))}
@@ -138,9 +131,7 @@ const NodeKeyFrames = ({ id }: { id: string }) => {
   const shapeContext = useShapesRecordContext();
   const dispatch = useAppDispatch();
 
-  const isSelected = useAppSelector(
-    (state) => state.shapes.selectedNodeId === id,
-  );
+  const isSelected = useAppSelector((state) => state.shapes.selectedNodeId === id);
   // const node = useTimeLine((e) => e.nodes[id]);
   const selectNode = () => {
     dispatch(selectShape(id));

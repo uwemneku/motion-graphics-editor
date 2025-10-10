@@ -20,7 +20,7 @@ export default function AppLayout() {
           <Screen />
         </div>
       </main>
-      <div className="relative z-20 min-h-[200px] border-t border-gray-900 bg-white">
+      <div className="relative z-20 min-h-[150px] border-t border-gray-900 bg-white">
         <Timeline />
       </div>
     </div>

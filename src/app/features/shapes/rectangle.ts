@@ -1,6 +1,5 @@
 import {
   Box3,
-  DoubleSide,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -9,8 +8,6 @@ import {
   PlaneGeometry,
   Raycaster,
   Scene,
-  Shape,
-  ShapeGeometry,
   Vector2,
   Vector3,
   WebGLRenderer,
@@ -19,7 +16,7 @@ import {
 } from "three";
 import type { CreateShapeArgs } from "../web-workers/types";
 import AppImage from "./image";
-import Transformer from "./transformhandle";
+import Transformer, { type TransformerKeys } from "./transformhandle";
 type AppShapes = Rectangle | AppImage;
 
 export class App {
@@ -31,7 +28,7 @@ export class App {
   private raycaster = new Raycaster();
   private shapeMap = new Map<string, AppShapes>();
   private transformerHandle: Transformer;
-  private transformhandle = false;
+  private transformhandle: TransformerKeys = "";
   private selectedShapeId = "";
   /**
    *  Multiply by this value to get the world equivalent
@@ -73,17 +70,6 @@ export class App {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     const [x] = this.updateRelativeSize();
-    const circleRadius = 40 * x;
-    const circleShape = new Shape()
-      .moveTo(0, circleRadius)
-      .quadraticCurveTo(circleRadius, circleRadius, circleRadius, 0)
-      .quadraticCurveTo(circleRadius, -circleRadius, 0, -circleRadius)
-      .quadraticCurveTo(-circleRadius, -circleRadius, -circleRadius, 0)
-      .quadraticCurveTo(-circleRadius, circleRadius, 0, circleRadius);
-    const geometry = new ShapeGeometry(circleShape);
-    const mesh = new Mesh(geometry, new MeshBasicMaterial({ color: "red", side: DoubleSide }));
-    mesh.position.set(0, 0, 0);
-    this.scene.add(mesh);
 
     this.transformerHandle.updateSize(10 * x);
     this.render();
@@ -155,13 +141,13 @@ export class App {
 
     if (isTransformHandle) {
       console.log("transformerhandle");
-      this.transformhandle = true;
+      this.transformhandle = shapeObj.name as TransformerKeys;
       return;
     }
 
     if (!shapeObj) {
       this.transformerHandle.hide();
-      this.transformhandle = false;
+      this.transformhandle = "";
       this.selectedShapeId = "";
     } else {
       while (shapeObj?.parent && !shapeObj.userData?.canSelect) {
@@ -270,6 +256,10 @@ export class App {
     }
   };
 
+  onMouseUp() {
+    this.transformhandle = "";
+  }
+
   onMouseMove(
     change: { x: number; y: number },
     movementX: number,
@@ -283,14 +273,15 @@ export class App {
 
       const { x, y } = this.getShapePositionChangeRatio(selectedShape.group.position.z);
       const pixelRatio = this.threeJsRenderer.getPixelRatio();
+      const changeX = x * movementX * pixelRatio;
 
       if (this.transformhandle) {
-        const _x = x * change.x * pixelRatio;
-        const _y = -y * change.y * pixelRatio;
-        this.transformerHandle.resize(_x, _y);
+        const _x = x * (change.x * 2) * pixelRatio;
+        const _y = -y * (change.y * 2) * pixelRatio;
+        const p = x * 10;
+        this.transformerHandle.resize(_x, _y, this.transformhandle);
       } else {
         const changeY = -y * movementY * pixelRatio;
-        const changeX = x * movementX * pixelRatio;
         selectedShape.group.position.x += changeX;
         selectedShape.group.position.y += changeY;
         this.transformerHandle.translate(changeX, changeY);
