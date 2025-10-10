@@ -1,19 +1,19 @@
+import { Canvas, config, Rect } from "fabric";
 import {
   Box3,
   Group,
   Mesh,
   MeshBasicMaterial,
   Object3D,
-  PerspectiveCamera,
   PlaneGeometry,
   Raycaster,
   Scene,
   Vector2,
   Vector3,
-  WebGLRenderer,
   type ColorRepresentation,
   type Object3DEventMap,
 } from "three";
+import { IS_WEB_WORKER } from "../web-workers/globals";
 import type { CreateShapeArgs } from "../web-workers/types";
 import AppImage from "./image";
 import Transformer, { type TransformerKeys } from "./transformhandle";
@@ -21,8 +21,9 @@ type AppShapes = Rectangle | AppImage;
 
 export class App {
   private z = 0;
+  static addEventListeners: Record<string, any> = {};
   private camera;
-  private threeJsRenderer;
+  private canvas: Canvas;
   private scene = new Scene();
   private mouse = new Vector2();
   private raycaster = new Raycaster();
@@ -37,41 +38,79 @@ export class App {
   private sizeRelativeDimension = new Float32Array(2);
 
   constructor(
-    offscreenCanvas: OffscreenCanvas,
+    lowerOffscreenCanvas: OffscreenCanvas,
     width: number,
     height: number,
     devicePixelRatio = 1,
   ) {
-    this.threeJsRenderer = new WebGLRenderer({
-      antialias: true,
-      canvas: offscreenCanvas,
+    if (IS_WEB_WORKER) {
+      lowerOffscreenCanvas.width = width;
+      lowerOffscreenCanvas.height = height;
+
+      lowerOffscreenCanvas.style = {
+        width: `${width}px`,
+        height: `${width}px`,
+        isMain: true,
+
+        setProperty: (...maincanvasStyles) => {
+          console.log({ maincanvasStyles });
+        },
+      };
+      lowerOffscreenCanvas.ownerDocument = {
+        documentElement: {
+          clientLeft: 0,
+          addEventListener: () => {},
+          defaultView: {
+            addEventListener: () => {},
+          },
+        },
+        addEventListener: () => {},
+      };
+
+      lowerOffscreenCanvas.defaultView = {
+        addEventListener: () => {
+          console.log("event on main ");
+        },
+      };
+      lowerOffscreenCanvas.hasAttribute = () => {};
+      lowerOffscreenCanvas.setAttribute = () => {};
+      lowerOffscreenCanvas.addEventListener = (...mainCanvasEvent) => {
+        console.log({ e: mainCanvasEvent });
+      };
+
+      lowerOffscreenCanvas.classList = {
+        add: (...s) => {
+          console.log({ s });
+        },
+      };
+    }
+
+    config.configure({ devicePixelRatio: 1 });
+    this.canvas = new Canvas(lowerOffscreenCanvas as unknown as HTMLCanvasElement, {
+      skipOffscreen: true,
+    });
+    this.canvas.on("mouse:down", () => {});
+    const helloWorld = new Rect({
+      width: 50,
+      height: 50,
+      backgroundColor: "red",
+
+      selectable: true,
+      evented: true, // ignores mouse/touch
+      hasControls: true, // no resize/rotate
+      hoverCursor: "default",
     });
 
-    this.threeJsRenderer.setPixelRatio(devicePixelRatio);
-    this.camera = new PerspectiveCamera(75, width / height, 1, 1000);
-    this.camera.position.set(0, 0, 2);
-    this.threeJsRenderer.setClearColor(0x000000, 1); // black background
-    this.transformerHandle = new Transformer((mesh) => {
-      this.scene.add(mesh);
-      this.shapeMap.set("transformer", { group: mesh });
-    });
+    this.canvas.add(helloWorld);
+    this.canvas.centerObject(helloWorld);
 
     this.fitCanvas(width, height);
-
-    // App.app = this;
   }
 
   fitCanvas(width: number, height: number) {
-    if (!this.threeJsRenderer) {
-      console.warn("Renderer not initialized yet");
-      return;
-    }
-    this.threeJsRenderer.setSize(width, height, false);
-    this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
-    const [x] = this.updateRelativeSize();
-
-    this.transformerHandle.updateSize(10 * x);
+    this.canvas.setHeight(height);
+    this.canvas.setWidth(width);
+    this.canvas.renderAll();
     this.render();
   }
 

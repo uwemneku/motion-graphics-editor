@@ -3,7 +3,7 @@ import type { KeyFrame } from "../../types";
 
 export const insertKeyFrameIntoElementTimeline = (
   keyFrame: KeyFrame,
-  allKeyFrames: KeyFrame[]
+  allKeyFrames: KeyFrame[],
 ) => {
   let insertIndex = 0;
   const totalKeyFrames = allKeyFrames.length;
@@ -33,7 +33,7 @@ export const insertKeyFrameIntoElementTimeline = (
   } else {
     insertIndex = Math.floor(
       ((trackPosition - firstKeyFrame?.timeStamp) / elementDuration) *
-        (totalKeyFrames - 1)
+        (totalKeyFrames - 1),
     );
 
     for (let index = insertIndex; index <= insertIndex + 1; index++) {

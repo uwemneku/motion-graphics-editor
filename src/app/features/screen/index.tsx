@@ -186,6 +186,7 @@ function Screen() {
       onMouseMove={() => {
         isMoving.current = true;
       }}
+      ref={(node) => {}}
     >
       <canvas
         className="absolute h-full w-full bg-black"

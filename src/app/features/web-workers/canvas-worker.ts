@@ -17,7 +17,98 @@ import {
   WebGLRenderer,
 } from "three";
 import { App } from "../shapes/rectangle";
+import { IS_WEB_WORKER } from "./globals";
 import type { IOffscreenRenderer } from "./types";
+
+if (IS_WEB_WORKER) {
+  self.document = {
+    createElement: (args: string) => {
+      console.log({ args });
+
+      switch (args) {
+        case "div":
+          console.log("creating div");
+
+          {
+            return {
+              style: {
+                setProperty: (...divStyles) => {
+                  console.log({ divStyles });
+                },
+              },
+              setAttribute: () => {},
+              classList: {
+                add: () => {},
+                remove: () => {},
+              },
+              append: () => {},
+              // addEventListener: () => {},
+              ownerDocument: {
+                documentElement: {
+                  clientLeft: 0,
+                },
+                // addEventListener: () => {},
+              },
+              defaultView: {},
+            };
+          }
+          break;
+        case "canvas": {
+          console.log("creating canvas");
+          // canvasCount++;
+          // console.log({ canvasCount });
+
+          const canvas = new OffscreenCanvas(100, 100);
+
+          canvas.style = {
+            setProperty: (...styles) => {
+              console.log(canvasCount, { customcanvas: styles });
+            },
+          };
+          canvas.style.setProperty = () => {};
+          canvas.hasAttribute = () => {};
+          canvas.setAttribute = () => {};
+          canvas.addEventListener = (
+            ...args: Parameters<HTMLCanvasElement["addEventListener"]>
+          ) => {
+            const [type, func = () => {}, options = {}] = args;
+            App.addEventListeners[type] = func;
+            // console.log(canvasCount, { func, options });
+          };
+
+          canvas.ownerDocument = {
+            documentElement: {
+              clientLeft: 0,
+              // addEventListener: () => {},
+            },
+            addEventListener: () => {},
+            defaultView: {
+              addEventListener: (...d) => {
+                console.log({ d });
+              },
+            },
+          };
+          // canvas.defaultView = {
+          //   // addEventListener: () => {},
+          // };
+          canvas.classList = {
+            add: (...a) => {
+              console.log({ a });
+            },
+            remove: () => {},
+          };
+          return canvas;
+        }
+        case "img":
+          return new Image();
+        default:
+      }
+    },
+  };
+  self.window = {
+    requestAnimationFrame: () => {},
+  };
+}
 
 let threeJsRenderer: WebGLRenderer;
 const raycaster = new Raycaster();
