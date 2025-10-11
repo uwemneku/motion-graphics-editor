@@ -6,6 +6,7 @@ function Screen() {
   const canvasContext = useCanvasWorkerContext();
   const app = canvasContext.app;
   const canvasNode = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [selectableDiv, animateTransformer] = useAnimate<HTMLDivElement>();
   const isControlPressed = useRef(false);
   const isDragging = useRef(false);
@@ -28,6 +29,7 @@ function Screen() {
       width,
       height,
       window.devicePixelRatio || 1,
+      () => containerRef.current?.getBoundingClientRect(),
     );
   };
 
@@ -57,92 +59,8 @@ function Screen() {
         isControlPressed.current,
         event.shiftKey,
       );
-      return;
-      const { x, y } = getRelativeCoordinates(event);
-      const changeRate = window.devicePixelRatio || 1;
-
-      if (isControlPressed.current) {
-        const xOrigin = 0.5;
-        const yOrigin = 0.5;
-
-        const lockYAxis =
-          dragData.position === "center-left" || dragData.position === "center-right";
-        const lockXAxis =
-          dragData.position === "top-center" || dragData.position === "bottom-center";
-        const reverseMouseYDirection = dragData.position === "center-right";
-        const reverseMouseXDirection = dragData.position === "bottom-center";
-
-        // indicates if a positive width value mean increase in width
-        const isXPositive = dragData.position === "top-left" || dragData.position === "bottom-left";
-        const isYPositive = dragData.position === "top-right" || dragData.position === "top-left";
-
-        // calculate the distance moved from the initial click point
-        const deltaX = lockXAxis
-          ? 0
-          : (event.clientX - dragData.startClientX) *
-            changeRate *
-            (reverseMouseYDirection ? -1 : 1);
-        const deltaY = lockYAxis
-          ? 0
-          : (event.clientY - dragData.startClientY) *
-            changeRate *
-            (reverseMouseXDirection ? -1 : 1);
-
-        // Calculate the scale factors
-        const scaleX = (dragData.shapeWidth + -deltaX) / dragData.shapeWidth;
-        const scaleY = (dragData.shapeHeight + -deltaY) / dragData.shapeHeight;
-
-        // Width and height of the transformer shape
-        const transformerWidth = dragData.shapeWidth + selectionAllowance;
-        const transformerHeight = dragData.shapeHeight + selectionAllowance;
-
-        const scaledTransformerWidth = ((dragData.xDirection || 0) + scaleX) * transformerWidth;
-        const scaledTransformerHeight = ((dragData.yDirection || 0) + scaleY) * transformerHeight;
-
-        // Determine if we need to flip the shape based on the direction of the drag
-        // If the user drags past the original position, we flip the shape
-        const shouldFlipX = isXPositive ? scaledTransformerWidth < 2 : scaledTransformerWidth > -2;
-        const shouldFlipY = isYPositive
-          ? scaledTransformerHeight < 2
-          : scaledTransformerHeight > -2;
-
-        const diffWidth = Math.abs(scaledTransformerWidth) - transformerWidth;
-        const diffHeight = Math.abs(scaledTransformerHeight) - transformerHeight;
-
-        const translateX = -diffWidth * xOrigin;
-        const translateY = -diffHeight * yOrigin;
-
-        // Animate the transformer div to reflect the new size and position
-        animateTransformer(
-          selectableDiv.current,
-          {
-            width: `${Math.abs(scaledTransformerWidth)}px`,
-            height: `${Math.abs(scaledTransformerHeight)}px`,
-            transform: `translate(${translateX}px, ${translateY}px) scaleX(${shouldFlipX ? -1 : 1}) scaleY(${shouldFlipY ? -1 : 1})`,
-          },
-          { duration: 0 },
-        );
-        const shapeScaleX = ((shouldFlipX ? 1 : -1) * scaledTransformerWidth) / transformerWidth;
-        const shapeScaleY = ((shouldFlipY ? -1 : 1) * scaledTransformerHeight) / transformerHeight;
-
-        await app?.transformShape(dragData.id, {
-          scaleX: shapeScaleX,
-          scaleY: shapeScaleY,
-        });
-        return;
-      }
-      if (isDragging.current) {
-        const _x = left.get() + event.movementX;
-        const _y = top.get() + event.movementY;
-        left.set(_x);
-        top.set(_y);
-        await app?.transformShape(dragData.id, {
-          xChange: event.movementX * changeRate,
-          yChange: event.movementY * changeRate,
-        });
-      }
     },
-    [animateTransformer, app, left, selectableDiv, top],
+    [app],
   );
 
   useEffect(() => {
@@ -170,23 +88,68 @@ function Screen() {
   return (
     <div
       className="relative h-full w-full"
-      onMouseDown={async (event) => {
-        dragDistance.current = {
-          ...dragDistance.current,
-          startClientX: event.clientX,
-          startClientY: event.clientY,
-        };
-        const pos = getRelativeCoordinates(event);
-        await canvasContext.app?.getShapeAtCoordinate(pos.x, pos.y);
-        isControlPressed.current = true;
-
-        return;
+      ref={containerRef}
+      onMouseDown={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("mousedown", c);
       }}
-      onMouseUp={handleMouseUp}
-      onMouseMove={() => {
-        isMoving.current = true;
+      onMouseMove={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("mousemove", c);
       }}
-      ref={(node) => {}}
+      onMouseOut={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("mouseout", c);
+      }}
+      onMouseUp={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("mouseup", c);
+        console.log("mouseup up", { c });
+      }}
+      onWheel={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("wheel", c);
+      }}
+      onContextMenu={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("contextmenu", c);
+      }}
+      onMouseEnter={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("mouseenter", c);
+      }}
+      onClick={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("click", c);
+      }}
+      onDoubleClick={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("dblclick", c);
+      }}
+      onDrag={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("drag", c);
+      }}
+      onDragEnd={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("dragend", c);
+      }}
+      onDragEnter={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("dragenter", c);
+      }}
+      onDragLeave={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("dragleave", c);
+      }}
+      onDragOver={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("dragover", c);
+      }}
+      onDrop={(e) => {
+        const c = removeFunctions(e);
+        canvasContext.app?.handleCallback("drop", c);
+      }}
     >
       <canvas
         className="absolute h-full w-full bg-black"
@@ -214,6 +177,29 @@ const getRelativeCoordinates = (event: React.MouseEvent<HTMLElement, MouseEvent>
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
   return { x, y };
+};
+
+const removeFunctions = (obj: MouseEvent) => {
+  // extract all non-function properties from obj
+  return {
+    altKey: obj.altKey,
+    button: obj.button,
+    buttons: obj.buttons,
+    clientX: obj.clientX,
+    clientY: obj.clientY,
+    ctrlKey: obj.ctrlKey,
+    metaKey: obj.metaKey,
+    movementX: obj.movementX,
+    movementY: obj.movementY,
+    pageX: obj.pageX,
+    pageY: obj.pageY,
+    screenX: obj.screenX,
+    screenY: obj.screenY,
+    shiftKey: obj.shiftKey,
+    type: obj.type,
+    timeStamp: obj.timeStamp,
+    // add more properties if needed
+  };
 };
 
 const dragInit = {

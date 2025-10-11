@@ -21,6 +21,7 @@ import { IS_WEB_WORKER } from "./globals";
 import type { IOffscreenRenderer } from "./types";
 
 if (IS_WEB_WORKER) {
+  let canvasCount = 0;
   self.document = {
     createElement: (args: string) => {
       console.log({ args });
@@ -42,7 +43,9 @@ if (IS_WEB_WORKER) {
                 remove: () => {},
               },
               append: () => {},
-              // addEventListener: () => {},
+              addEventListener: () => {
+                console.log("event listener added to div");
+              },
               ownerDocument: {
                 documentElement: {
                   clientLeft: 0,
@@ -54,18 +57,24 @@ if (IS_WEB_WORKER) {
           }
           break;
         case "canvas": {
+          const id = crypto.randomUUID();
           console.log("creating canvas");
-          // canvasCount++;
+          canvasCount++;
           // console.log({ canvasCount });
 
           const canvas = new OffscreenCanvas(100, 100);
 
           canvas.style = {
             setProperty: (...styles) => {
-              console.log(canvasCount, { customcanvas: styles });
+              console.log(id, { customcanvas: styles });
             },
           };
           canvas.style.setProperty = () => {};
+          canvas.getBoundingClientRect = async () => {
+            const res = await App.getUpperCanvasBoundingClient();
+
+            return res;
+          };
           canvas.hasAttribute = () => {};
           canvas.setAttribute = () => {};
           canvas.addEventListener = (
@@ -73,7 +82,7 @@ if (IS_WEB_WORKER) {
           ) => {
             const [type, func = () => {}, options = {}] = args;
             App.addEventListeners[type] = func;
-            // console.log(canvasCount, { func, options });
+            console.log({ id, type });
           };
 
           canvas.ownerDocument = {
@@ -83,6 +92,7 @@ if (IS_WEB_WORKER) {
             },
             addEventListener: () => {},
             defaultView: {
+              // attached resize observer to detect changes in size of the canvas
               addEventListener: (...d) => {
                 console.log({ d });
               },
@@ -107,6 +117,7 @@ if (IS_WEB_WORKER) {
   };
   self.window = {
     requestAnimationFrame: () => {},
+    devicePixelRatio: 1,
   };
 }
 

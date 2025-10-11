@@ -1,4 +1,4 @@
-import { transfer } from "comlink";
+import { proxy, transfer } from "comlink";
 import { createContext, useContext, useRef, useState, type PropsWithChildren } from "react";
 import { App } from "../shapes/rectangle";
 import CanvasWorkerProxy from "../web-workers/main-thread-exports";
@@ -15,6 +15,7 @@ type ICanvasWorkerContext = {
     width: number,
     height: number,
     pixelRatio: number,
+    callback: Element["getBoundingClientRect"],
   ) => void;
   app?: WrapClassMethodInPromise<App>;
 };
@@ -32,13 +33,17 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
     width: number,
     height: number,
     pixelRatio,
+    callback,
   ) => {
+    const _callback = proxy(callback);
     app.current = await new CanvasWorkerProxy(
       transfer(offscreenCanvas, [offscreenCanvas]),
       width,
       height,
       pixelRatio,
+      _callback,
     );
+    app.current?.registerUpperC(_callback);
     setTrigger((prev) => prev + 1);
   };
 

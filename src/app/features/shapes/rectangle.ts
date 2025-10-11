@@ -1,4 +1,4 @@
-import { Canvas, config, Rect } from "fabric";
+import { Canvas, Rect } from "fabric";
 import {
   Box3,
   Group,
@@ -22,6 +22,7 @@ type AppShapes = Rectangle | AppImage;
 export class App {
   private z = 0;
   static addEventListeners: Record<string, any> = {};
+  static getUpperCanvasBoundingClient = () => {};
   private camera;
   private canvas: Canvas;
   private scene = new Scene();
@@ -61,10 +62,10 @@ export class App {
           clientLeft: 0,
           addEventListener: () => {},
           defaultView: {
-            addEventListener: () => {},
+            // addEventListener: () => {},
           },
         },
-        addEventListener: () => {},
+        // addEventListener: () => {},
       };
 
       lowerOffscreenCanvas.defaultView = {
@@ -74,9 +75,9 @@ export class App {
       };
       lowerOffscreenCanvas.hasAttribute = () => {};
       lowerOffscreenCanvas.setAttribute = () => {};
-      lowerOffscreenCanvas.addEventListener = (...mainCanvasEvent) => {
-        console.log({ e: mainCanvasEvent });
-      };
+      // lowerOffscreenCanvas.addEventListener = (...mainCanvasEvent) => {
+      //   console.log({ mainCanvasEvent });
+      // };
 
       lowerOffscreenCanvas.classList = {
         add: (...s) => {
@@ -85,20 +86,26 @@ export class App {
       };
     }
 
-    config.configure({ devicePixelRatio: 1 });
     this.canvas = new Canvas(lowerOffscreenCanvas as unknown as HTMLCanvasElement, {
-      skipOffscreen: true,
+      enableRetinaScaling: true,
+      width,
+      height,
     });
-    this.canvas.on("mouse:down", () => {});
-    const helloWorld = new Rect({
-      width: 50,
-      height: 50,
-      backgroundColor: "red",
 
-      selectable: true,
-      evented: true, // ignores mouse/touch
-      hasControls: true, // no resize/rotate
-      hoverCursor: "default",
+    const helloWorld = new Rect({
+      left: 100 / 2,
+      top: 50 / 2,
+      fill: "red",
+      width: 50 / 2,
+      height: 50 / 2,
+      strokeWidth: 1,
+      stroke: "#880E4F",
+      rx: 10,
+      ry: 10,
+      angle: 45,
+      scaleX: 3,
+      scaleY: 3,
+      hasControls: true,
     });
 
     this.canvas.add(helloWorld);
@@ -107,15 +114,31 @@ export class App {
     this.fitCanvas(width, height);
   }
 
+  registerUpperC(s: Element["getBoundingClientRect"]) {
+    App.getUpperCanvasBoundingClient = s;
+  }
+
   fitCanvas(width: number, height: number) {
+    // config.configure({ devicePixelRatio: 2 });
+
     this.canvas.setHeight(height);
     this.canvas.setWidth(width);
+    this.canvas.setDimensions({ height, width });
     this.canvas.renderAll();
     this.render();
   }
+  handleCallback(type: keyof HTMLElementEventMap, data: any) {
+    if (type === "mouseup") {
+      this.canvas._onMouseUp(data);
+      return;
+    }
+
+    App.addEventListeners[type]?.(data);
+    this.canvas.renderAll();
+  }
 
   private render() {
-    this.threeJsRenderer?.render(this.scene, this.camera);
+    this.canvas.renderAll();
   }
 
   /* -------------------------------------------------------------------------- */
