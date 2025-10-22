@@ -94,13 +94,10 @@ export async function start_worker(
   console.log("worker started");
   const width = videoDimensions.width * exportQuality;
   const height = videoDimensions.height * exportQuality;
-  const videoCodec = await getFirstEncodableVideoCodec(
-    output.format.getSupportedVideoCodecs(),
-    {
-      width: width,
-      height: height,
-    },
-  );
+  const videoCodec = await getFirstEncodableVideoCodec(output.format.getSupportedVideoCodecs(), {
+    width: width,
+    height: height,
+  });
 
   if (!videoCodec) {
     throw new Error("Your browser doesn't support video encoding.");
@@ -114,50 +111,62 @@ export async function start_worker(
   // Scene
   const scene = new THREE.Scene();
 
-  // Camera
+  // Camera with white background
+  scene.background = new THREE.Color(0xffffff);
   const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
   camera.position.z = 5;
 
   // Renderer
   const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: v });
-  renderer.setPixelRatio(0.5);
+  renderer.setPixelRatio(2);
   renderer.setSize(width, height, false);
 
-  // Rectangle
-  const geometry = new THREE.PlaneGeometry(2, 1);
+  // Rectangle (increased size)
+  // doubled from 2x1 to 4x2
+  const geometry = new THREE.PlaneGeometry(4, 2);
   const material = new THREE.MeshBasicMaterial({
-    color: 0x00ff00,
+    color: "blue",
     side: THREE.DoubleSide,
   });
+  const group = new THREE.Group();
   const rectangle = new THREE.Mesh(geometry, material);
-  scene.add(rectangle);
+  // left border
+  const leftBoder = new THREE.Mesh(
+    // height matches rectangle height
+    new THREE.PlaneGeometry(0.1, 2),
+    new THREE.MeshBasicMaterial({ color: "red" }),
+  );
+  // place at left edge (half width + small gap)
+  leftBoder.position.x = -2.05;
+  group.add(leftBoder);
+  // right border
+  const rightBorder = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.1, 2),
+    new THREE.MeshBasicMaterial({ color: "red" }),
+  );
+  rightBorder.position.x = 2.05;
+  group.add(rightBorder);
+
+  // top border
+  const topBorder = new THREE.Mesh(
+    // width slightly larger than rectangle width
+    new THREE.PlaneGeometry(4.2, 0.1),
+    new THREE.MeshBasicMaterial({ color: "red" }),
+  );
+  topBorder.position.y = 1.05;
+  group.add(topBorder);
+  // bottom border
+  const bottomBorder = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.2, 0.1),
+    new THREE.MeshBasicMaterial({ color: "red" }),
+  );
+  bottomBorder.position.y = -1.05;
+  group.add(bottomBorder);
+
+  group.add(rectangle);
+  scene.add(group);
   renderer.render(scene, camera);
 
-  const demoImg = "https://konvajs.org/assets/yoda.jpg";
-
-  console.log({ demoImg });
-
-  const imgBlob = await (await fetch(demoImg)).blob();
-  const bitmapImage = await createImageBitmap(imgBlob);
-  console.log({ bitmapImage });
-
-  // const img = new FabricImage(bitmapImage, {
-  //   dirty: true,
-  //   left: 0,
-  //   top: 0,
-  //   angle: 0,
-  //   clipPath: new Circle({
-  //     objectCaching: false,
-  //     radius: 30,
-  //     originX: "center",
-  //     originY: "center",
-  //   }),
-  // });
-
-  // canvas.add(img);
-
-  //
-  //
   const frameRate = 60;
   const canvasSource = new CanvasSource(v, {
     codec: videoCodec,
@@ -171,19 +180,14 @@ export async function start_worker(
     onUpdate: () => {},
   });
 
-  // return;
-
   try {
-    //
-
     output.addVideoTrack(canvasSource, { frameRate });
     await output.start();
-    //
-
-    timline.to(rectangle.rotation, {
+    timline.to(group.rotation, {
       duration: videoDuration,
+      z: Math.PI * 2,
+      y: Math.PI * 2,
       x: Math.PI * 2,
-      // y: Math.PI * 2,
       ease: "none",
 
       onUpdate: () => {},
@@ -214,9 +218,7 @@ export async function start_worker(
       }
     }
     if (droppedFrames > 0) {
-      console.warn(
-        `Total dropped frames: ${droppedFrames} out of ${totalFrames}`,
-      );
+      console.warn(`Total dropped frames: ${droppedFrames} out of ${totalFrames}`);
     }
     //
     canvasSource.close();

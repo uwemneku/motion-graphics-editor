@@ -1,18 +1,15 @@
 import {
-  Box3,
   Group,
   Mesh,
   MeshBasicMaterial,
-  Object3D,
   PerspectiveCamera,
-  PlaneGeometry,
   Raycaster,
   Scene,
+  Shape,
+  ShapeGeometry,
   Vector2,
-  Vector3,
   WebGLRenderer,
   type ColorRepresentation,
-  type Object3DEventMap,
 } from "three";
 import type { CreateShapeArgs } from "../web-workers/types";
 import AppImage from "./image";
@@ -57,8 +54,6 @@ export class App {
     });
 
     this.fitCanvas(width, height);
-
-    // App.app = this;
   }
 
   fitCanvas(width: number, height: number) {
@@ -127,12 +122,13 @@ export class App {
     this.raycaster.setFromCamera(this.mouse, this.camera);
 
     const allShapes = [...this.shapeMap.entries()].map((i) => i[1].group);
+    console.log({ allShapes });
 
     const intersects = this.raycaster
       .intersectObjects(allShapes)
       .sort((a, b) => ((a.object.userData.z || 0) > (b.object.userData.z || 0) ? -1 : 1));
 
-    console.log(intersects);
+    console.log(this.shapeMap);
 
     // If the raycaster hit a nested mesh (child of the Group), climb up
     // to find the top-level Group that represents the logical shape.
@@ -161,43 +157,6 @@ export class App {
     this.render();
 
     return;
-    //
-    const shape = shapeObj as Mesh | Group;
-    // ensure world matrix is up to date before getting world position
-    shape.updateMatrixWorld();
-    // Project to normalized device coordinates (NDC)
-
-    const worldVector = new Vector3(shape.position.x, shape.position.y, shape.position.z); // Your 3D world coordinate
-    worldVector.project(this.camera); // Projects the vector onto the camera's near plane
-
-    const cw = this.threeJsRenderer.domElement.width / pixelRatio;
-    const vh = this.threeJsRenderer.domElement.height / pixelRatio;
-
-    const cx = ((worldVector.x + 1) / 2) * cw;
-    const cy = (-(worldVector.y - 1) / 2) * vh; // Invert y-axis as canvas y is typically positive downwards
-
-    shape.updateMatrixWorld(); // ensure world matrix is up to date
-    // compute bounding box in world units to determine size
-    const box = new Box3().setFromObject(shape as unknown as Object3D);
-    const size = box.getSize(new Vector3());
-    const shapeWidth = size.x;
-    const shapeHeight = size.y;
-    const canvasShapeWidth = shapeWidth / this.sizeRelativeDimension[0];
-    const canvasShapeHeight = shapeHeight / this.sizeRelativeDimension[1];
-
-    const shapeDataf = {
-      id: shape.userData.id,
-      x: cx - canvasShapeWidth / 2,
-      y: cy - canvasShapeHeight / 2,
-      shapeWidth: canvasShapeWidth,
-      shapeHeight: canvasShapeHeight,
-      scale: {
-        x: shape.scale.x,
-        y: shape.scale.y,
-      },
-    };
-
-    return shapeDataf;
   };
 
   // Create shapes
@@ -212,7 +171,7 @@ export class App {
     switch (args.type) {
       case "rect":
         {
-          const rect = new Rectangle(args.width * x, args.height * y);
+          const rect = new Rectangle(0, 0, args.width * x, args.height * y, 0.05, 0.08);
           shape = rect;
         }
         break;
@@ -245,7 +204,6 @@ export class App {
       group.position.z = 0 + currentNumberOfShapes / 10000;
 
       this.z = group.position.z + group.position.z / 10;
-      console.log("z", currentNumberOfShapes, this.z, group.position.z);
       group.userData.id = shapeId;
       group.userData.canSelect = true;
       group.userData.z = currentNumberOfShapes;
@@ -261,7 +219,7 @@ export class App {
   }
 
   onMouseMove(
-    change: { x: number; y: number },
+    delta: { x: number; y: number },
     movementX: number,
     movementY: number,
     isMouseDown: boolean,
@@ -276,10 +234,10 @@ export class App {
       const changeX = x * movementX * pixelRatio;
 
       if (this.transformhandle) {
-        const _x = x * (change.x * 2) * pixelRatio;
-        const _y = -y * (change.y * 2) * pixelRatio;
-        const p = x * 10;
-        this.transformerHandle.resize(_x, _y, this.transformhandle);
+        const _x = x * (delta.x * 2) * pixelRatio;
+        const _y = -y * (delta.y * 2) * pixelRatio;
+
+        this.transformerHandle.resize(_x, _y, this.transformhandle, shiftKey);
       } else {
         const changeY = -y * movementY * pixelRatio;
         selectedShape.group.position.x += changeX;
@@ -325,21 +283,73 @@ export class App {
 }
 
 class Rectangle {
-  private shape: Mesh<PlaneGeometry, MeshBasicMaterial, Object3DEventMap>;
-  private geometry: PlaneGeometry;
-  //
+  // private shape: Mesh<PlaneGeometry, MeshBasicMaterial, Object3DEventMap>;
+  // private geometry: PlaneGeometry;
   group = new Group();
-  //   shape:
   constructor(
+    x = 0,
+    y = 0,
     width: number,
     height: number,
-    border: number = 0,
+    borderThickness: number = 0,
+    borderRadius = 0,
     fillColor: ColorRepresentation = "white",
+    borderColor: ColorRepresentation = "red",
   ) {
-    // main rectangle
-    this.geometry = new PlaneGeometry(width, height);
-    const material = new MeshBasicMaterial({ color: (Math.random() * 0xffffff) | 0 });
-    this.shape = new Mesh(this.geometry, material);
-    this.group.add(this.shape);
+    // border shape
+    const outerShape = Rectangle.createRoundedRectangle(x, y, width, height, borderRadius);
+    const innerRadius = Math.max(0, borderRadius - borderThickness);
+
+    const hole = Rectangle.createRoundedRectangle(
+      x + borderThickness,
+      y + borderThickness,
+      width - borderThickness * 2,
+      height - borderThickness * 2,
+      innerRadius,
+    );
+
+    outerShape.holes.push(hole);
+
+    const borderMesh = new Mesh(
+      new ShapeGeometry(outerShape),
+      new MeshBasicMaterial({ color: borderColor }),
+    );
+    borderMesh.position.z = 0.0001;
+    this.group.add(borderMesh);
+
+    // fill shape
+    const fillShape = Rectangle.createRoundedRectangle(
+      x + borderThickness,
+      y + borderThickness,
+      width - borderThickness * 2,
+      height - borderThickness * 2,
+      innerRadius,
+    );
+
+    const fillMesh = new Mesh(
+      new ShapeGeometry(fillShape),
+      new MeshBasicMaterial({ color: fillColor }),
+    );
+    this.group.add(fillMesh);
+  }
+
+  static createRoundedRectangle(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number,
+  ) {
+    const shape = new Shape();
+    shape.moveTo(x + radius, y);
+    shape.lineTo(x + width - radius, y);
+    shape.quadraticCurveTo(x + width, y, x + width, y + radius);
+    shape.lineTo(x + width, y + height - radius);
+    shape.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    shape.lineTo(x + radius, y + height);
+    shape.quadraticCurveTo(x, y + height, x, y + height - radius);
+    shape.lineTo(x, y + radius);
+    shape.quadraticCurveTo(x, y, x + radius, y);
+    return shape;
   }
 }

@@ -85,6 +85,7 @@ class Transformer {
     this.meshes.border.geometry.dispose();
     this.meshes.border.geometry = new EdgesGeometry(new PlaneGeometry(w + p, h + p));
     this.meshes.border.position.z = z;
+    // this.meshes.border.position.x = mesh.position.x;
 
     this.meshes.leftTop.position.x = -w / 2 - this.size;
     this.meshes.leftTop.position.y = h / 2 + this.size;
@@ -112,7 +113,7 @@ class Transformer {
 
     this.group.visible = true;
     this.group.position.x = mesh.position.x;
-    this.group.position.y = mesh.position.y;
+    this.group.position.y = 0;
     this.group.scale.x = 1;
     this.group.scale.y = 1;
   }
@@ -127,18 +128,23 @@ class Transformer {
     this.group.scale.y += y;
   }
 
-  resize(deltaX: number, deltaY: number, activeHandle: TransformerKeys) {
+  resize(deltaX: number, deltaY: number, activeHandle: TransformerKeys, shiftKey: boolean) {
     const borer = this.meshes.border;
 
     const { startHeight, startWidth } = this.startData;
+    const aspectRatio = startWidth / startHeight;
     const reverseX = activeHandle.startsWith("left");
     const reverseY = activeHandle.endsWith("Bottom");
-    const newWidth = startWidth + deltaX * (reverseX ? -1 : 1);
     const newHeight = startHeight + deltaY * (reverseY ? -1 : 1);
-    const isWidthHigh = newWidth > deltaX;
-    const isHeightHigh = newHeight > deltaY;
-    const edgeXChange = (deltaX / 2) * (reverseX ? 1 : -1);
+    let newWidth = startWidth + deltaX * (reverseX ? -1 : 1);
+
     const edgeYChange = (deltaY / 2) * (reverseY ? -1 : 1);
+    let edgeXChange = (deltaX / 2) * (reverseX ? 1 : -1);
+
+    if (shiftKey) {
+      edgeXChange = edgeYChange * aspectRatio;
+      newWidth = newHeight * aspectRatio;
+    }
 
     this.group.children.map((i) => {
       switch (i.name as TransformerKeys) {
