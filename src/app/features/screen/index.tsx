@@ -22,6 +22,8 @@ function Screen() {
     canvasNode.current = node;
     const height = node.clientHeight;
     const width = node.clientWidth;
+    node.width = width * (window.devicePixelRatio || 1);
+    node.height = height * (window.devicePixelRatio || 1);
 
     const offscreenCanvas = node?.transferControlToOffscreen();
     await canvasContext.initializeCanvasWorker(
@@ -152,7 +154,7 @@ function Screen() {
       }}
     >
       <canvas
-        className="absolute h-full w-full bg-black"
+        className="absolute h-full w-full"
         ref={(node) => {
           if (node && !canvasNode.current) {
             registerWorker(node);
@@ -185,8 +187,8 @@ const removeFunctions = (obj: MouseEvent) => {
     altKey: obj.altKey,
     button: obj.button,
     buttons: obj.buttons,
-    clientX: obj.clientX,
-    clientY: obj.clientY,
+    clientX: obj.clientX * 2,
+    clientY: obj.clientY * 2,
     ctrlKey: obj.ctrlKey,
     metaKey: obj.metaKey,
     movementX: obj.movementX,

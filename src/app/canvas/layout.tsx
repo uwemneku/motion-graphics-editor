@@ -18,6 +18,7 @@ export default function AppLayout() {
             <ExportFeature2 />
           </FloatingMenuWrapper>
           <Screen />
+          {/* <FabricSample /> */}
         </div>
       </main>
       <div className="relative z-20 min-h-[150px] border-t border-gray-900 bg-white">

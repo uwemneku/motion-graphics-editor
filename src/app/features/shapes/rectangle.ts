@@ -1,4 +1,4 @@
-import { Canvas, Rect } from "fabric";
+import { Canvas, config, Rect } from "fabric";
 import {
   Box3,
   Group,
@@ -42,7 +42,7 @@ export class App {
     lowerOffscreenCanvas: OffscreenCanvas,
     width: number,
     height: number,
-    devicePixelRatio = 1,
+    devicePixelRatio = 2,
   ) {
     if (IS_WEB_WORKER) {
       lowerOffscreenCanvas.width = width;
@@ -86,6 +86,7 @@ export class App {
       };
     }
 
+    config.configure({ devicePixelRatio: 2 });
     this.canvas = new Canvas(lowerOffscreenCanvas as unknown as HTMLCanvasElement, {
       enableRetinaScaling: true,
       width,
@@ -119,11 +120,9 @@ export class App {
   }
 
   fitCanvas(width: number, height: number) {
-    // config.configure({ devicePixelRatio: 2 });
-
-    this.canvas.setHeight(height);
-    this.canvas.setWidth(width);
-    this.canvas.setDimensions({ height, width });
+    // this.canvas.setHeight(height);
+    // this.canvas.setWidth(width);
+    this.canvas.setDimensions({ height: height * 2, width: width * 2 });
     this.canvas.renderAll();
     this.render();
   }

@@ -76,7 +76,9 @@ if (IS_WEB_WORKER) {
             return res;
           };
           canvas.hasAttribute = () => {};
-          canvas.setAttribute = () => {};
+          canvas.setAttribute = (...canvasAttribute) => {
+            console.log({ canvasAttribute });
+          };
           canvas.addEventListener = (
             ...args: Parameters<HTMLCanvasElement["addEventListener"]>
           ) => {
@@ -117,7 +119,7 @@ if (IS_WEB_WORKER) {
   };
   self.window = {
     requestAnimationFrame: () => {},
-    devicePixelRatio: 1,
+    devicePixelRatio: 2,
   };
 }
 
@@ -126,7 +128,7 @@ const raycaster = new Raycaster();
 const mouse = new Vector2();
 const scene = new Scene();
 let camera: PerspectiveCamera;
-let pixelRatio = 1;
+let pixelRatio = 2;
 
 const shapeMap = new Map<string, Mesh | Group>();
 let app: App;
