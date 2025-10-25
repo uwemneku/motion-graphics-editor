@@ -1,9 +1,15 @@
 import {
+  AlwaysStencilFunc,
+  EqualStencilFunc,
   Group,
+  IncrementStencilOp,
+  KeepStencilOp,
+  Material,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
   Raycaster,
+  ReplaceStencilOp,
   Scene,
   Shape,
   ShapeGeometry,
@@ -42,14 +48,16 @@ export class App {
     this.threeJsRenderer = new WebGLRenderer({
       antialias: true,
       canvas: offscreenCanvas,
+      stencil: true,
     });
 
-    this.threeJsRenderer.setPixelRatio(devicePixelRatio);
+    this.threeJsRenderer.setPixelRatio(2);
     this.camera = new PerspectiveCamera(75, width / height, 1, 1000);
     this.camera.position.set(0, 0, 2);
     this.threeJsRenderer.setClearColor(0x000000, 1); // black background
     this.transformerHandle = new Transformer((mesh) => {
       this.scene.add(mesh);
+      mesh.visible = false;
       this.shapeMap.set("transformer", { group: mesh });
     });
 
@@ -61,6 +69,22 @@ export class App {
       console.warn("Renderer not initialized yet");
       return;
     }
+    // All settings for the primary canvas
+    const [_x, _y] = this.sizeRelativeDimension;
+    const rec = new Rectangle(-0.5, -0.5, _x * (width / 2), _y * (height / 2), 4 * _x, 0);
+
+    const fillMaterial = rec.fillMesh.material as Material;
+    fillMaterial.colorWrite = false;
+    fillMaterial.depthWrite = false;
+    fillMaterial.stencilWrite = true;
+    fillMaterial.stencilRef = 1;
+    fillMaterial.stencilFunc = AlwaysStencilFunc;
+    fillMaterial.stencilFail = ReplaceStencilOp;
+    fillMaterial.stencilZFail = ReplaceStencilOp;
+    fillMaterial.stencilZPass = ReplaceStencilOp;
+
+    this.scene.add(rec.group);
+
     this.threeJsRenderer.setSize(width, height, false);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
@@ -164,7 +188,6 @@ export class App {
     const shapeId = crypto.randomUUID();
 
     let shape: AppShapes | null = null;
-    console.log({ args });
 
     const x = this.sizeRelativeDimension[0];
     const y = this.sizeRelativeDimension[1];
@@ -172,7 +195,16 @@ export class App {
       case "rect":
         {
           const rect = new Rectangle(0, 0, args.width * x, args.height * y, 0.05, 0.08);
-          shape = rect;
+          rect.group.children.forEach((mesh) => {
+            const material = mesh.material as Material;
+            material.stencilWrite = true;
+            material.stencilRef = this.shapeMap.size;
+            material.stencilFunc = EqualStencilFunc;
+            material.stencilFail = KeepStencilOp;
+            material.stencilZFail = KeepStencilOp;
+            material.stencilZPass = IncrementStencilOp;
+            shape = rect;
+          });
         }
         break;
       case "circle":
@@ -283,9 +315,14 @@ export class App {
 }
 
 class Rectangle {
-  // private shape: Mesh<PlaneGeometry, MeshBasicMaterial, Object3DEventMap>;
-  // private geometry: PlaneGeometry;
+  static fillShapeLabel = "Fill_Shape_label";
+  static bordersShapeLabel = "Border_Shape_label";
+  //
+  borderMesh: Mesh;
+  fillMesh: Mesh;
   group = new Group();
+
+  //
   constructor(
     x = 0,
     y = 0,
@@ -310,12 +347,13 @@ class Rectangle {
 
     outerShape.holes.push(hole);
 
-    const borderMesh = new Mesh(
+    this.borderMesh = new Mesh(
       new ShapeGeometry(outerShape),
       new MeshBasicMaterial({ color: borderColor }),
     );
-    borderMesh.position.z = 0.0001;
-    this.group.add(borderMesh);
+    this.borderMesh.position.z = 0.0001;
+    this.borderMesh.name = Rectangle.bordersShapeLabel;
+    this.group.add(this.borderMesh);
 
     // fill shape
     const fillShape = Rectangle.createRoundedRectangle(
@@ -326,11 +364,12 @@ class Rectangle {
       innerRadius,
     );
 
-    const fillMesh = new Mesh(
+    this.fillMesh = new Mesh(
       new ShapeGeometry(fillShape),
       new MeshBasicMaterial({ color: fillColor }),
     );
-    this.group.add(fillMesh);
+    this.fillMesh.name = Rectangle.fillShapeLabel;
+    this.group.add(this.fillMesh);
   }
 
   static createRoundedRectangle(
