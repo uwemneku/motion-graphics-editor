@@ -1,4 +1,4 @@
-import { Canvas, config, Rect } from "fabric";
+import { Canvas, config, Image, Rect } from "fabric";
 import {
   Box3,
   Group,
@@ -86,7 +86,7 @@ export class App {
       };
     }
 
-    config.configure({ devicePixelRatio: 2 });
+    config.configure({ devicePixelRatio });
     this.canvas = new Canvas(lowerOffscreenCanvas as unknown as HTMLCanvasElement, {
       enableRetinaScaling: true,
       width,
@@ -109,6 +109,10 @@ export class App {
       hasControls: true,
     });
 
+    Image.fromURL("https://picsum.photos/200/300", {}, {}).then((img) => {
+      this.canvas.add(img);
+    });
+
     this.canvas.add(helloWorld);
     this.canvas.centerObject(helloWorld);
 
@@ -120,9 +124,11 @@ export class App {
   }
 
   fitCanvas(width: number, height: number) {
-    // this.canvas.setHeight(height);
-    // this.canvas.setWidth(width);
-    this.canvas.setDimensions({ height: height * 2, width: width * 2 });
+    const devicePixelRatio = config.devicePixelRatio;
+    this.canvas.setDimensions({
+      height: height * devicePixelRatio,
+      width: width * devicePixelRatio,
+    });
     this.canvas.renderAll();
     this.render();
   }

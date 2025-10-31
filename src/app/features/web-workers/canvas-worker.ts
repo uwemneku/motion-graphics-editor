@@ -58,9 +58,7 @@ if (IS_WEB_WORKER) {
           break;
         case "canvas": {
           const id = crypto.randomUUID();
-          console.log("creating canvas");
           canvasCount++;
-          // console.log({ canvasCount });
 
           const canvas = new OffscreenCanvas(100, 100);
 
@@ -72,7 +70,6 @@ if (IS_WEB_WORKER) {
           canvas.style.setProperty = () => {};
           canvas.getBoundingClientRect = async () => {
             const res = await App.getUpperCanvasBoundingClient();
-
             return res;
           };
           canvas.hasAttribute = () => {};

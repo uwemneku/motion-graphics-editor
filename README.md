@@ -1,8 +1,24 @@
 # Notes
 
-- Trying resizing instead of scaling
+31/10/2024
 
+- Trying to use fabric JS with offscreen canvas in a worker.
+- With fabric Js, due to the custom polyfill on the worker side to make it work, having a pixel ratio greater than 1 was resizing the canvas instead of increasing canvas quality. The fix was
+
+```ts
+      this.canvas.setDimensions({
+      height: height * devicePixelRatio,
+      width: width * devicePixelRatio,
+    });
+```
+
+When device pixel is greater than one, calculations need to be make to mouse events to ensure they trigger the right events on canvas objects
+
+- Trying out three js and offscreen canvas, tricky part is trying to handle custom transformer.
+
+<hr />
 01/10/24
+- Trying resizing instead of scaling
 
 - Was having issues where videos generated with a worker looked very pixelated, turns out it was because the  [pixelRatio](https://konvajs.org/api/Konva.Canvas.html#getPixelRatio) on the main thread is 2 but on a worker it had a value of 1.
 To get the same quality from the worker thread, I had to set the pixelRatio to two, this made the export process slow but faster than the main thread.
