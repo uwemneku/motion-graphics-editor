@@ -71,10 +71,10 @@ export class App {
     }
     // All settings for the primary canvas
     const [_x, _y] = this.sizeRelativeDimension;
-    const rec = new Rectangle(-0.5, -0.5, _x * (width / 2), _y * (height / 2), 4 * _x, 0);
+    const rec = new Rectangle(-0.5, -0.5, _x * (width / 2), _y * (height / 2), 4 * _x, 0, "white");
 
     const fillMaterial = rec.fillMesh.material as Material;
-    fillMaterial.colorWrite = false;
+    // fillMaterial.colorWrite = false;
     fillMaterial.depthWrite = false;
     fillMaterial.stencilWrite = true;
     fillMaterial.stencilRef = 1;
@@ -195,6 +195,7 @@ export class App {
       case "rect":
         {
           const rect = new Rectangle(0, 0, args.width * x, args.height * y, 0.05, 0.08);
+          rect.group.rotateZ(0.2);
           rect.group.children.forEach((mesh) => {
             const material = mesh.material as Material;
             material.stencilWrite = true;
