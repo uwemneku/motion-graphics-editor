@@ -93,64 +93,64 @@ function Screen() {
       ref={containerRef}
       onMouseDown={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("mousedown", c);
+        canvasContext.app?.handleMouseCallback("mousedown", c);
       }}
       onMouseMove={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("mousemove", c);
+        canvasContext.app?.handleMouseCallback("mousemove", c);
       }}
       onMouseOut={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("mouseout", c);
+        canvasContext.app?.handleMouseCallback("mouseout", c);
       }}
       onMouseUp={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("mouseup", c);
+        canvasContext.app?.handleMouseCallback("mouseup", c);
         console.log("mouseup up", { c });
       }}
       onWheel={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("wheel", c);
+        canvasContext.app?.handleMouseCallback("wheel", c);
       }}
       onContextMenu={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("contextmenu", c);
+        canvasContext.app?.handleMouseCallback("contextmenu", c);
       }}
       onMouseEnter={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("mouseenter", c);
+        canvasContext.app?.handleMouseCallback("mouseenter", c);
       }}
       onClick={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("click", c);
+        canvasContext.app?.handleMouseCallback("click", c);
       }}
       onDoubleClick={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("dblclick", c);
+        canvasContext.app?.handleMouseCallback("dblclick", c);
       }}
       onDrag={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("drag", c);
+        canvasContext.app?.handleMouseCallback("drag", c);
       }}
       onDragEnd={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("dragend", c);
+        canvasContext.app?.handleMouseCallback("dragend", c);
       }}
       onDragEnter={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("dragenter", c);
+        canvasContext.app?.handleMouseCallback("dragenter", c);
       }}
       onDragLeave={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("dragleave", c);
+        canvasContext.app?.handleMouseCallback("dragleave", c);
       }}
       onDragOver={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("dragover", c);
+        canvasContext.app?.handleMouseCallback("dragover", c);
       }}
       onDrop={(e) => {
         const c = removeFunctions(e);
-        canvasContext.app?.handleCallback("drop", c);
+        canvasContext.app?.handleMouseCallback("drop", c);
       }}
     >
       <canvas

@@ -1,35 +1,30 @@
 import { Canvas, config, Image, Rect } from "fabric";
 import {
-  Box3,
   Group,
   Mesh,
   MeshBasicMaterial,
-  Object3D,
   PlaneGeometry,
-  Raycaster,
-  Scene,
-  Vector2,
-  Vector3,
   type ColorRepresentation,
   type Object3DEventMap,
 } from "three";
 import { IS_WEB_WORKER } from "../web-workers/globals";
 import type { CreateShapeArgs } from "../web-workers/types";
 import AppImage from "./image";
-import Transformer, { type TransformerKeys } from "./transformhandle";
+import { type TransformerKeys } from "./transformhandle";
+
+// Needed handle missing API in worker
+import "./fabric-polyfill";
 type AppShapes = Rectangle | AppImage;
 
 export class App {
-  private z = 0;
-  static addEventListeners: Record<string, any> = {};
+  //
+  // The two properties are used to bound mouse events
+  static addEventListeners: Record<string, unknown> = {};
   static getUpperCanvasBoundingClient = () => {};
-  private camera;
+  //
+  //
   private canvas: Canvas;
-  private scene = new Scene();
-  private mouse = new Vector2();
-  private raycaster = new Raycaster();
   private shapeMap = new Map<string, AppShapes>();
-  private transformerHandle: Transformer;
   private transformhandle: TransformerKeys = "";
   private selectedShapeId = "";
   /**
@@ -47,44 +42,33 @@ export class App {
     if (IS_WEB_WORKER) {
       lowerOffscreenCanvas.width = width;
       lowerOffscreenCanvas.height = height;
-
-      lowerOffscreenCanvas.style = {
-        width: `${width}px`,
-        height: `${width}px`,
-        isMain: true,
-
-        setProperty: (...maincanvasStyles) => {
-          console.log({ maincanvasStyles });
+      Object.assign(lowerOffscreenCanvas, {
+        style: {
+          width: `${width}px`,
+          height: `${width}px`,
+          isMain: true,
+          // main-canvas-styles
+          setProperty: () => {},
         },
-      };
-      lowerOffscreenCanvas.ownerDocument = {
-        documentElement: {
-          clientLeft: 0,
-          addEventListener: () => {},
-          defaultView: {
-            // addEventListener: () => {},
+        ownerDocument: {
+          documentElement: {
+            clientLeft: 0,
+            addEventListener: () => {},
+            defaultView: {},
           },
         },
-        // addEventListener: () => {},
-      };
-
-      lowerOffscreenCanvas.defaultView = {
-        addEventListener: () => {
-          console.log("event on main ");
+        defaultView: {
+          addEventListener: () => {},
         },
-      };
-      lowerOffscreenCanvas.hasAttribute = () => {};
-      lowerOffscreenCanvas.setAttribute = () => {};
-      // lowerOffscreenCanvas.addEventListener = (...mainCanvasEvent) => {
-      //   console.log({ mainCanvasEvent });
-      // };
-
-      lowerOffscreenCanvas.classList = {
-        add: (...s) => {
-          console.log({ s });
+        hasAttribute: () => {},
+        setAttribute: () => {},
+        classList: {
+          add: () => {},
         },
-      };
+      });
     }
+
+    console.log({ devicePixelRatio });
 
     config.configure({ devicePixelRatio });
     this.canvas = new Canvas(lowerOffscreenCanvas as unknown as HTMLCanvasElement, {
@@ -109,9 +93,7 @@ export class App {
       hasControls: true,
     });
 
-    Image.fromURL("https://picsum.photos/200/300", {}, {}).then((img) => {
-      this.canvas.add(img);
-    });
+    this.createImage("https://picsum.photos/100/100");
 
     this.canvas.add(helloWorld);
     this.canvas.centerObject(helloWorld);
@@ -132,7 +114,25 @@ export class App {
     this.canvas.renderAll();
     this.render();
   }
-  handleCallback(type: keyof HTMLElementEventMap, data: any) {
+
+  async createImage(src: string) {
+    try {
+      const imgBlob = await (await fetch(src)).blob();
+      const bitmapImage = await createImageBitmap(imgBlob);
+      const offscreen = new OffscreenCanvas(bitmapImage.width, bitmapImage.height);
+      const ctx = offscreen.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(bitmapImage, 0, 0);
+
+      const fabricImage = new Image(offscreen as unknown as HTMLCanvasElement);
+
+      this.canvas.add(fabricImage);
+      this.canvas.renderAll();
+    } catch (error) {
+      console.log({ error });
+    }
+  }
+  handleMouseCallback(type: keyof HTMLElementEventMap, data: any) {
     if (type === "mouseup") {
       this.canvas._onMouseUp(data);
       return;
@@ -146,126 +146,17 @@ export class App {
     this.canvas.renderAll();
   }
 
-  /* -------------------------------------------------------------------------- */
-  /* -------------------------------------------------------------------------- */
-  private updateRelativeSize = () => {
-    // Calculate visible dimensions at z=0
-    const distance = this.camera.position.z; // camera distance to plane z=0
-    const fov = this.camera.fov;
-    const vFov = (fov * Math.PI) / 180; // vertical FOV in radians
-    const width = this.threeJsRenderer.domElement.width;
-    const height = this.threeJsRenderer.domElement.height;
-    const visibleHeight = 2 * Math.tan(vFov / 2) * distance;
-    const visibleWidth = visibleHeight * (width / height);
-    const pixelRatio = this.threeJsRenderer.getPixelRatio();
-
-    const canvasToWorldX = (1 / width) * visibleWidth * pixelRatio;
-    const canvasToWorldY = (1 / height) * visibleHeight * pixelRatio;
-    this.sizeRelativeDimension = new Float32Array([canvasToWorldX, canvasToWorldY]);
-    return this.sizeRelativeDimension;
-  };
-
   /**
    * The rate of change from the plane to at a z distance int he world
    * @param z The z axis to do calculation from
    * @returns
    */
   private getShapePositionChangeRatio = (z = 0) => {
-    const distance = Math.abs(this.camera.position.z - z);
-    const vFOV = (this.camera.fov * Math.PI) / 180;
-    const height = 2 * Math.tan(vFOV / 2) * distance;
-    const x = (height * this.camera.aspect) / this.threeJsRenderer.domElement.width;
-    const y = height / this.threeJsRenderer.domElement.height;
-    return { x, y };
+    return { x: 0, y: 0 };
   };
 
   /* -------------------------------------------------------------------------- */
   /* -------------------------------------------------------------------------- */
-
-  getShapeAtCoordinate = (x: number, y: number) => {
-    const pixelRatio = this.threeJsRenderer.getPixelRatio();
-
-    const width = this.threeJsRenderer.domElement.width / pixelRatio;
-    const height = this.threeJsRenderer.domElement.height / pixelRatio;
-
-    this.mouse.x = (x / width) * 2 - 1;
-    this.mouse.y = -(y / height) * 2 + 1;
-
-    this.raycaster.setFromCamera(this.mouse, this.camera);
-
-    const allShapes = [...this.shapeMap.entries()].map((i) => i[1].group);
-
-    const intersects = this.raycaster
-      .intersectObjects(allShapes)
-      .sort((a, b) => ((a.object.userData.z || 0) > (b.object.userData.z || 0) ? -1 : 1));
-
-    console.log(intersects);
-
-    // If the raycaster hit a nested mesh (child of the Group), climb up
-    // to find the top-level Group that represents the logical shape.
-    let shapeObj = intersects?.[0]?.object;
-    const isTransformHandle = shapeObj?.userData?.isTransformHandle;
-
-    if (isTransformHandle) {
-      console.log("transformerhandle");
-      this.transformhandle = shapeObj.name as TransformerKeys;
-      return;
-    }
-
-    if (!shapeObj) {
-      this.transformerHandle.hide();
-      this.transformhandle = "";
-      this.selectedShapeId = "";
-    } else {
-      while (shapeObj?.parent && !shapeObj.userData?.canSelect) {
-        shapeObj = shapeObj.parent;
-      }
-      this.selectedShapeId = shapeObj.userData.id;
-      if (this.selectedShapeId)
-        this.transformerHandle.align(shapeObj, this.z, 10 * this.sizeRelativeDimension[0]);
-    }
-
-    this.render();
-
-    return;
-    //
-    const shape = shapeObj as Mesh | Group;
-    // ensure world matrix is up to date before getting world position
-    shape.updateMatrixWorld();
-    // Project to normalized device coordinates (NDC)
-
-    const worldVector = new Vector3(shape.position.x, shape.position.y, shape.position.z); // Your 3D world coordinate
-    worldVector.project(this.camera); // Projects the vector onto the camera's near plane
-
-    const cw = this.threeJsRenderer.domElement.width / pixelRatio;
-    const vh = this.threeJsRenderer.domElement.height / pixelRatio;
-
-    const cx = ((worldVector.x + 1) / 2) * cw;
-    const cy = (-(worldVector.y - 1) / 2) * vh; // Invert y-axis as canvas y is typically positive downwards
-
-    shape.updateMatrixWorld(); // ensure world matrix is up to date
-    // compute bounding box in world units to determine size
-    const box = new Box3().setFromObject(shape as unknown as Object3D);
-    const size = box.getSize(new Vector3());
-    const shapeWidth = size.x;
-    const shapeHeight = size.y;
-    const canvasShapeWidth = shapeWidth / this.sizeRelativeDimension[0];
-    const canvasShapeHeight = shapeHeight / this.sizeRelativeDimension[1];
-
-    const shapeDataf = {
-      id: shape.userData.id,
-      x: cx - canvasShapeWidth / 2,
-      y: cy - canvasShapeHeight / 2,
-      shapeWidth: canvasShapeWidth,
-      shapeHeight: canvasShapeHeight,
-      scale: {
-        x: shape.scale.x,
-        y: shape.scale.y,
-      },
-    };
-
-    return shapeDataf;
-  };
 
   // Create shapes
   createShape = (args: CreateShapeArgs) => {
@@ -311,13 +202,11 @@ export class App {
 
       group.position.z = 0 + currentNumberOfShapes / 10000;
 
-      this.z = group.position.z + group.position.z / 10;
       console.log("z", currentNumberOfShapes, this.z, group.position.z);
       group.userData.id = shapeId;
       group.userData.canSelect = true;
       group.userData.z = currentNumberOfShapes;
 
-      this.scene.add(group);
       this.render();
       return { id: shapeId };
     }
