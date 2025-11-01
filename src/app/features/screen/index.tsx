@@ -1,4 +1,3 @@
-import { useAnimate, useMotionValue } from "motion/react";
 import { useCallback, useEffect, useRef, type MouseEventHandler } from "react";
 import { useCanvasWorkerContext } from "./canvas-worker-context";
 
@@ -7,15 +6,11 @@ function Screen() {
   const app = canvasContext.app;
   const canvasNode = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selectableDiv, animateTransformer] = useAnimate<HTMLDivElement>();
   const isControlPressed = useRef(false);
   const isDragging = useRef(false);
   const dragDistance = useRef(dragInit);
-  const left = useMotionValue(0);
-  const top = useMotionValue(0);
   const isMoving = useRef(false);
-
-  const selectionAllowance = 0; // px
+  console.log(canvasContext);
 
   const registerWorker = async (node: HTMLCanvasElement) => {
     if (canvasNode.current) return;
@@ -174,21 +169,14 @@ type ITransformersData = {
   disableTranslateX?: boolean;
 };
 
-const getRelativeCoordinates = (event: React.MouseEvent<HTMLElement, MouseEvent>) => {
-  const rect = event.currentTarget.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
-  return { x, y };
-};
-
-const removeFunctions = (obj: MouseEvent) => {
+const removeFunctions = (obj: MouseEvent, devicePixelRatio = 2) => {
   // extract all non-function properties from obj
   return {
     altKey: obj.altKey,
     button: obj.button,
     buttons: obj.buttons,
-    clientX: obj.clientX * 2,
-    clientY: obj.clientY * 2,
+    clientX: (obj.clientX - 136) * devicePixelRatio,
+    clientY: obj.clientY * devicePixelRatio,
     ctrlKey: obj.ctrlKey,
     metaKey: obj.metaKey,
     movementX: obj.movementX,
@@ -224,53 +212,5 @@ const dragInit = {
     y: 1,
   },
 };
-
-const transformersData: ITransformersData[] = [
-  {
-    //top-left
-    yPosition: "top",
-    xPosition: "left",
-  },
-  {
-    //top-center
-    yPosition: "top",
-    xPosition: "center",
-    allowedDirections: ["x"],
-  },
-  {
-    //top-right
-    yPosition: "top",
-    xPosition: "right",
-    x: -2,
-    disableTranslateX: true,
-  },
-  {
-    //middle-left
-    yPosition: "center",
-    xPosition: "left",
-    allowedDirections: ["y"],
-  },
-  {
-    //middle-right
-    yPosition: "center",
-    xPosition: "right",
-    allowedDirections: ["y"],
-  },
-  { y: -2, yPosition: "bottom", xPosition: "left" }, //bottom-left
-  {
-    //bottom-center
-    yPosition: "bottom",
-    xPosition: "center",
-    allowedDirections: ["x"],
-  },
-  {
-    //bottom-right
-    yPosition: "bottom",
-    xPosition: "right",
-    x: -2,
-    y: -2,
-    disableTranslateX: true,
-  },
-];
 
 export default Screen;

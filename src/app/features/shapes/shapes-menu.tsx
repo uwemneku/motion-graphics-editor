@@ -1,5 +1,4 @@
 import { useAppDispatch } from "@/app/store";
-import { transfer } from "comlink";
 import { type ReactNode } from "react";
 import { FaRegCircle, FaRegImage, FaRegSquare, FaShapes } from "react-icons/fa6";
 import { PiTextAaBold } from "react-icons/pi";
@@ -9,9 +8,10 @@ import { addShape } from "./slice";
 
 function ShapePicker() {
   const dispatch = useAppDispatch();
-  const app = useCanvasWorkerContext().app;
+  const canvasContext = useCanvasWorkerContext();
 
   function handleAddNode(shape: NodeType) {
+    const app = canvasContext.app;
     return function () {
       switch (shape) {
         case "image":
@@ -66,11 +66,11 @@ function ShapePicker() {
             }
           }
 
-          app?.createShape({
+          canvasContext.app?.createShape({
             type: "image",
             width: width,
             height: height,
-            src: transfer(bitmapImage, [bitmapImage]),
+            src: imgSrc,
           });
         }
       };

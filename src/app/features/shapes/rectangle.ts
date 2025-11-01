@@ -1,12 +1,4 @@
-import { Canvas, config, Image, Rect } from "fabric";
-import {
-  Group,
-  Mesh,
-  MeshBasicMaterial,
-  PlaneGeometry,
-  type ColorRepresentation,
-  type Object3DEventMap,
-} from "three";
+import { Canvas, config, Object as fabricObject, Image, Rect } from "fabric";
 import { IS_WEB_WORKER } from "../web-workers/globals";
 import type { CreateShapeArgs } from "../web-workers/types";
 import AppImage from "./image";
@@ -68,8 +60,6 @@ export class App {
       });
     }
 
-    console.log({ devicePixelRatio });
-
     config.configure({ devicePixelRatio });
     this.canvas = new Canvas(lowerOffscreenCanvas as unknown as HTMLCanvasElement, {
       enableRetinaScaling: true,
@@ -77,28 +67,12 @@ export class App {
       height,
     });
 
-    const helloWorld = new Rect({
-      left: 100 / 2,
-      top: 50 / 2,
-      fill: "red",
-      width: 50 / 2,
-      height: 50 / 2,
-      strokeWidth: 1,
-      stroke: "#880E4F",
-      rx: 10,
-      ry: 10,
-      angle: 45,
-      scaleX: 3,
-      scaleY: 3,
-      hasControls: true,
-    });
-
-    this.createImage("https://picsum.photos/100/100");
-
-    this.canvas.add(helloWorld);
-    this.canvas.centerObject(helloWorld);
+    // this.canvas.add(helloWorld);
+    // this.canvas.centerObject(helloWorld);
 
     this.fitCanvas(width, height);
+
+    this.createImage("https://picsum.photos/100/100");
   }
 
   registerUpperC(s: Element["getBoundingClientRect"]) {
@@ -111,11 +85,13 @@ export class App {
       height: height * devicePixelRatio,
       width: width * devicePixelRatio,
     });
+    this.canvas.width = width;
+    this.canvas.height = height;
     this.canvas.renderAll();
     this.render();
   }
 
-  async createImage(src: string) {
+  async createImage(src: string, options?: { width?: number; height?: number }) {
     try {
       const imgBlob = await (await fetch(src)).blob();
       const bitmapImage = await createImageBitmap(imgBlob);
@@ -125,8 +101,21 @@ export class App {
       ctx.drawImage(bitmapImage, 0, 0);
 
       const fabricImage = new Image(offscreen as unknown as HTMLCanvasElement);
+      if (options) {
+        if (options.height) fabricImage.scaleToHeight(options.height);
+        if (options.width) fabricImage.scaleToWidth(options.width);
+      } else {
+        const imageAspectRation = bitmapImage.width / bitmapImage.height;
+        const maxImageWidth = this.canvas.width * 0.5;
+        console.log(bitmapImage.width, this.canvas.width);
+        if (bitmapImage.width > maxImageWidth) {
+          fabricImage.scaleToWidth(maxImageWidth);
+          fabricImage.scaleToHeight(maxImageWidth / imageAspectRation);
+        }
+      }
 
       this.canvas.add(fabricImage);
+      this.canvas.centerObject(fabricImage);
       this.canvas.renderAll();
     } catch (error) {
       console.log({ error });
@@ -162,15 +151,24 @@ export class App {
   createShape = (args: CreateShapeArgs) => {
     const shapeId = crypto.randomUUID();
 
-    let shape: AppShapes | null = null;
+    let shape: fabricObject | null = null;
     console.log({ args });
 
-    const x = this.sizeRelativeDimension[0];
-    const y = this.sizeRelativeDimension[1];
     switch (args.type) {
       case "rect":
         {
-          const rect = new Rectangle(args.width * x, args.height * y);
+          const rect = new Rect({
+            left: 0,
+            top: 0,
+            fill: "red",
+            width: args.width,
+            height: args.height,
+            strokeWidth: 1,
+            stroke: "#880E4F",
+            rx: 0,
+            ry: 0,
+            hasControls: true,
+          });
           shape = rect;
         }
         break;
@@ -184,31 +182,17 @@ export class App {
         break;
       case "image":
         {
-          const image = new AppImage(args.src, args.width * x, args.height * y);
-          shape = image;
+          this.createImage(args.src);
         }
         break;
       default:
         console.warn("Unknown shape type", args);
     }
     if (shape) {
-      this.shapeMap.set(shapeId, shape);
-      const currentNumberOfShapes = this.shapeMap.size;
-
-      const group = shape.group;
-      group.children?.forEach((i) => {
-        i.userData.z = currentNumberOfShapes;
-      });
-
-      group.position.z = 0 + currentNumberOfShapes / 10000;
-
-      console.log("z", currentNumberOfShapes, this.z, group.position.z);
-      group.userData.id = shapeId;
-      group.userData.canSelect = true;
-      group.userData.z = currentNumberOfShapes;
-
+      this.canvas.add(shape);
+      this.canvas.centerObject(shape);
       this.render();
-      return { id: shapeId };
+      console.log({ shape });
     }
   };
 
@@ -277,25 +261,5 @@ export class App {
       //
       this.render();
     }
-  }
-}
-
-class Rectangle {
-  private shape: Mesh<PlaneGeometry, MeshBasicMaterial, Object3DEventMap>;
-  private geometry: PlaneGeometry;
-  //
-  group = new Group();
-  //   shape:
-  constructor(
-    width: number,
-    height: number,
-    border: number = 0,
-    fillColor: ColorRepresentation = "white",
-  ) {
-    // main rectangle
-    this.geometry = new PlaneGeometry(width, height);
-    const material = new MeshBasicMaterial({ color: (Math.random() * 0xffffff) | 0 });
-    this.shape = new Mesh(this.geometry, material);
-    this.group.add(this.shape);
   }
 }

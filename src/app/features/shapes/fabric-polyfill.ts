@@ -7,8 +7,6 @@ if (IS_WEB_WORKER) {
     createElement: (args: string) => {
       switch (args) {
         case "div":
-          console.log("creating div");
-
           {
             return {
               style: {
@@ -47,7 +45,6 @@ if (IS_WEB_WORKER) {
             addEventListener: (...args: Parameters<HTMLCanvasElement["addEventListener"]>) => {
               const [type, func = () => {}, options = {}] = args;
               App.addEventListeners[type] = func;
-              //   console.log({ id, type });
             },
             ownerDocument: {
               documentElement: {
@@ -69,7 +66,6 @@ if (IS_WEB_WORKER) {
           return canvas;
         }
         case "img": {
-          console.log("creating image");
           class CustomImage {
             _src = "";
             _onLoad = () => {};

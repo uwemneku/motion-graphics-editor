@@ -28,6 +28,8 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
   const app = useRef<WrapClassMethodInPromise<App>>(undefined);
   const [trigger, setTrigger] = useState(0);
 
+  console.log({ app: app.current });
+
   const initializeCanvasWorker: ICanvasWorkerContext["initializeCanvasWorker"] = async (
     offscreenCanvas: OffscreenCanvas,
     width: number,
