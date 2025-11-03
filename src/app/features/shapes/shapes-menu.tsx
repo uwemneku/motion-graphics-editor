@@ -1,7 +1,9 @@
 import { useAppDispatch } from "@/app/store";
 import { type ReactNode } from "react";
-import { FaRegCircle, FaRegImage, FaRegSquare, FaShapes } from "react-icons/fa6";
-import { PiTextAaBold } from "react-icons/pi";
+import { CiImageOn } from "react-icons/ci";
+import { FaRegCircle, FaRegSquare } from "react-icons/fa6";
+import { LuShapes } from "react-icons/lu";
+import { RiText } from "react-icons/ri";
 import type { NodeType } from "../../../types";
 import { useCanvasWorkerContext } from "../screen/canvas-worker-context";
 import { addShape } from "./slice";
@@ -21,7 +23,7 @@ function ShapePicker() {
           app?.createShape({ type: "rect", width: 200, height: 200, borderWidth: 0 });
           break;
         case "circle":
-          // app?.createShape({ type: "circle" });
+          app?.createShape({ type: "circle", radius: 20 });
           break;
 
         default:
@@ -79,27 +81,39 @@ function ShapePicker() {
   }
 
   return (
-    <div className="group relative">
-      <FaShapes size={24} />
-      <div className="absolute top-0 left-full hidden -translate-y-3 pl-5 group-hover:block">
-        <div className="flex gap-3 rounded-full border bg-white px-3 py-1">
-          {nodeData.map((e) => (
-            <button
-              className="relative rounded-full p-1 transition-transform hover:scale-[105%] hover:bg-black hover:text-white active:scale-95 hover:[&>svg]:scale-75"
-              key={e.type}
-              onClick={handleAddNode(e.type)}
-            >
-              {e.type === "image" && (
-                <input
-                  type="file"
-                  className="absolute left-0 z-10 h-full w-full cursor-pointer bg-black opacity-0"
-                  accept="image/*,video/*"
-                  onChange={handleImageChange}
-                />
-              )}
-              {e.el}
-            </button>
-          ))}
+    <div className="relative flex gap-2">
+      <div className="flex items-center">
+        <button className="relative">
+          <input
+            type="file"
+            className="absolute left-0 z-10 h-full w-full cursor-pointer bg-black opacity-0"
+            accept="image/*,video/*"
+            onChange={handleImageChange}
+          />
+          <CiImageOn className="z-0" size={24} />
+        </button>
+        <div className="group relative">
+          <LuShapes size={24} />
+          <div className="absolute -top-[200%] bottom-0 -left-full hidden -translate-x-[40%] pl-5 group-hover:block">
+            <div className="flex gap-3 rounded-full border bg-white px-3 py-1">
+              {nodeData.map((e) => (
+                <button
+                  className="relative rounded-full p-1 transition-transform hover:scale-[105%] hover:bg-black hover:text-white active:scale-95 hover:[&>svg]:scale-75"
+                  key={e.type}
+                  onClick={handleAddNode(e.type)}
+                >
+                  {e.el}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <RiText className="z-0" size={24} />
+      </div>
+      <div className="p-2">
+        <div className="rounded-sm bg-black p-2 text-white">
+          <button>Animate</button>
+          <button>De</button>
         </div>
       </div>
     </div>
@@ -107,10 +121,9 @@ function ShapePicker() {
 }
 
 const nodeData: { type: NodeType; el: ReactNode }[] = [
-  { type: "text", el: <PiTextAaBold className="z-0" size={24} /> },
+  // { type: "text", el: <PiTextAaBold className="z-0" size={24} /> },
   { type: "circle", el: <FaRegCircle className="z-0" size={24} /> },
   { type: "square", el: <FaRegSquare className="z-0" size={24} /> },
-  { type: "image", el: <FaRegImage className="z-0" size={24} /> },
 ];
 
 export default ShapePicker;

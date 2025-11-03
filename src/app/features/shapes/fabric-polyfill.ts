@@ -102,9 +102,13 @@ if (IS_WEB_WORKER) {
       }
     },
   };
+
+  const r = requestAnimationFrame;
   self.window = {
     // @ts-expect-error requestAnimationFrame is declared globally
-    requestAnimationFrame: () => {},
+    requestAnimationFrame: (...d) => {
+      r(...d);
+    },
     devicePixelRatio: 2,
   };
 }

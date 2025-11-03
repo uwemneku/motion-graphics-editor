@@ -1,5 +1,9 @@
 # Notes
 
+3/11/2024
+
+- After translating objects from a worker, fabricObject.setCoords() needs to be called to update the event hitbox
+
 31/10/2024
 
 - Trying to use fabric JS with offscreen canvas in a worker.

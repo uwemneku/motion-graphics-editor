@@ -1,4 +1,5 @@
-import { Canvas, config, Object as fabricObject, Image, Rect } from "fabric";
+import { Canvas, Circle, config, Object as fabricObject, Image, Rect } from "fabric";
+import gsap from "gsap";
 import { IS_WEB_WORKER } from "../web-workers/globals";
 import type { CreateShapeArgs } from "../web-workers/types";
 import AppImage from "./image";
@@ -6,7 +7,8 @@ import { type TransformerKeys } from "./transformhandle";
 
 // Needed handle missing API in worker
 import "./fabric-polyfill";
-type AppShapes = Rectangle | AppImage;
+
+type AppShapes = AppImage;
 
 export class App {
   //
@@ -71,7 +73,13 @@ export class App {
     // this.canvas.centerObject(helloWorld);
 
     this.fitCanvas(width, height);
+    this.startRenderLoop();
 
+    const f = () => {
+      this.canvas.requestRenderAll();
+      requestAnimationFrame(f);
+    };
+    // f();
     this.createImage("https://picsum.photos/100/100");
   }
 
@@ -117,6 +125,7 @@ export class App {
       this.canvas.add(fabricImage);
       this.canvas.centerObject(fabricImage);
       this.canvas.renderAll();
+      return fabricImage;
     } catch (error) {
       console.log({ error });
     }
@@ -133,6 +142,11 @@ export class App {
 
   private render() {
     this.canvas.renderAll();
+    this.canvas.renderTop();
+  }
+  private startRenderLoop() {
+    this.render();
+    requestAnimationFrame(this.startRenderLoop.bind(this));
   }
 
   /**
@@ -148,7 +162,7 @@ export class App {
   /* -------------------------------------------------------------------------- */
 
   // Create shapes
-  createShape = (args: CreateShapeArgs) => {
+  async createShape(args: CreateShapeArgs) {
     const shapeId = crypto.randomUUID();
 
     let shape: fabricObject | null = null;
@@ -174,15 +188,20 @@ export class App {
         break;
       case "circle":
         {
-          // const { _w } = getRelativeSize(args.radius || 200, 0, "world");
-          // const circle = createCircle(_w);
-          // shape = circle;
+          shape = new Circle({
+            radius: 65,
+            fill: "#039BE5",
+            left: 0,
+            stroke: "red",
+            strokeWidth: 3,
+          });
         }
         // createCircle(args.radius);
         break;
       case "image":
         {
-          this.createImage(args.src);
+          shape = await this.createImage(args.src);
+          console.log({ gsap, shape });
         }
         break;
       default:
@@ -191,10 +210,19 @@ export class App {
     if (shape) {
       this.canvas.add(shape);
       this.canvas.centerObject(shape);
-      this.render();
-      console.log({ shape });
+      if (shape) {
+        gsap.to(shape, {
+          rotate: 10,
+          top: 100,
+          delay: 10,
+          onComplete() {
+            //  This is needed to update hitbox
+            shape.setCoords();
+          },
+        });
+      }
     }
-  };
+  }
 
   onMouseUp() {
     this.transformhandle = "";

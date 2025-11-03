@@ -169,7 +169,7 @@ type ITransformersData = {
   disableTranslateX?: boolean;
 };
 
-const removeFunctions = (obj: MouseEvent, devicePixelRatio = 2) => {
+const removeFunctions = (obj: MouseEvent, devicePixelRatio = window.devicePixelRatio) => {
   // extract all non-function properties from obj
   return {
     altKey: obj.altKey,
