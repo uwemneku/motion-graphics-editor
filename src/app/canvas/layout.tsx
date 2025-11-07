@@ -4,9 +4,6 @@ import Screen from "../features/screen";
 import ShapePicker from "../features/shapes/shapes-menu";
 import ExportFeature2 from "../molecules/v2";
 
-requestAnimationFrame(() => {
-  console.log("hello");
-});
 export default function AppLayout() {
   return (
     <div className="flex h-[100dvh] w-[100dvw]">
@@ -26,7 +23,7 @@ export default function AppLayout() {
             {/* <FabricSample /> */}
           </div>
         </main>
-        <div className="mx-auto my-2 flex h-[48px] w-fit items-center rounded-sm border p-2">
+        <div className="absolute bottom-2 left-1/2 z-10 flex -translate-1/2 items-center rounded-xl border-2 border-gray-500 bg-white">
           <ShapePicker />
         </div>
         {/* <div className="relative z-20 min-h-[150px] border-t border-gray-900 bg-white">

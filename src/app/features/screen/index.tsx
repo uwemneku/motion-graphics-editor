@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, type MouseEventHandler } from "react";
+import { proxy } from "comlink";
+import { useCallback, useEffect, useRef, useState, type MouseEventHandler } from "react";
 import { useCanvasWorkerContext } from "./canvas-worker-context";
 
 function Screen() {
@@ -10,7 +11,6 @@ function Screen() {
   const isDragging = useRef(false);
   const dragDistance = useRef(dragInit);
   const isMoving = useRef(false);
-  console.log(canvasContext);
 
   const registerWorker = async (node: HTMLCanvasElement) => {
     if (canvasNode.current) return;
@@ -20,15 +20,28 @@ function Screen() {
     node.width = width * (window.devicePixelRatio || 1);
     node.height = height * (window.devicePixelRatio || 1);
 
-    const offscreenCanvas = node?.transferControlToOffscreen();
     await canvasContext.initializeCanvasWorker(
-      offscreenCanvas,
+      node,
       width,
       height,
       window.devicePixelRatio || 1,
       () => containerRef.current?.getBoundingClientRect(),
     );
   };
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      console.log(e.key);
+
+      switch (e.key) {
+        case "Backspace":
+        case "Delete":
+          canvasContext.app?.deleteSelectedShapes();
+          break;
+      }
+    },
+    [canvasContext.app],
+  );
 
   const handleMouseUp = useCallback(() => {
     isDragging.current = false;
@@ -75,16 +88,18 @@ function Screen() {
 
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
       resizeObserver.disconnect();
       window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [canvasContext, handleMouseMove, handleMouseUp]);
+  }, [canvasContext, handleKeyDown, handleMouseMove, handleMouseUp]);
 
   return (
     <div
-      className="relative h-full w-full"
+      className="relative h-full w-full bg-[#F5F5F5]"
       ref={containerRef}
       onMouseDown={(e) => {
         const c = removeFunctions(e);
@@ -101,7 +116,6 @@ function Screen() {
       onMouseUp={(e) => {
         const c = removeFunctions(e);
         canvasContext.app?.handleMouseCallback("mouseup", c);
-        console.log("mouseup up", { c });
       }}
       onWheel={(e) => {
         const c = removeFunctions(e);
@@ -148,8 +162,9 @@ function Screen() {
         canvasContext.app?.handleMouseCallback("drop", c);
       }}
     >
+      <FloatingSize />
       <canvas
-        className="absolute h-full w-full"
+        className="absolute z-10 h-full w-full"
         ref={(node) => {
           if (node && !canvasNode.current) {
             registerWorker(node);
@@ -212,5 +227,70 @@ const dragInit = {
     y: 1,
   },
 };
+
+function FloatingSize() {
+  const MOUSE_PADDING = 20;
+  const [size, setSize] = useState<string>();
+  const canvasContext = useCanvasWorkerContext();
+  const hasAttachedListener = useRef(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const isMouseDown = useRef(false);
+
+  if (!hasAttachedListener.current && canvasContext.hasInitializedWorker) {
+    canvasContext.app?.addEventListener(
+      "object:scaling",
+      proxy((width: number, height: number) => {
+        if (!isMouseDown.current) return;
+        setSize(`${width.toFixed(0)} x ${height.toFixed(0)}`);
+      }),
+    );
+    canvasContext.app?.addEventListener(
+      "object:rotating",
+      proxy((angle: number) => {
+        if (!isMouseDown.current) return;
+        setSize(`${angle.toFixed(0)}°`);
+      }),
+    );
+  }
+
+  useEffect(() => {
+    const handleMouseUp = () => {
+      setSize(undefined);
+      isMouseDown.current = false;
+      ref.current?.style.setProperty("opacity", `0`);
+    };
+
+    const getInitialMousePosition = (e: MouseEvent) => {
+      ref.current?.style.setProperty("left", `${e.pageX + MOUSE_PADDING}px`);
+      ref.current?.style.setProperty("top", `${e.pageY + MOUSE_PADDING}px`);
+      isMouseDown.current = true;
+    };
+
+    const moveIndicator = (e: MouseEvent) => {
+      ref.current?.style.setProperty("left", `${e.pageX + MOUSE_PADDING}px`);
+      ref.current?.style.setProperty("top", `${e.pageY + MOUSE_PADDING}px`);
+      ref.current?.style.setProperty("opacity", `1`);
+    };
+    window.addEventListener("mousedown", getInitialMousePosition);
+    window.addEventListener("mousemove", moveIndicator);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousedown", getInitialMousePosition);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mousemove", moveIndicator);
+    };
+  }, []);
+
+  if (!size) return null;
+
+  return (
+    <div
+      ref={ref}
+      className="fixed z-20 min-w-[40px] rounded-full bg-blue-400 p-1 text-center text-[10px] font-semibold text-white opacity-0"
+    >
+      {size}
+    </div>
+  );
+}
 
 export default Screen;

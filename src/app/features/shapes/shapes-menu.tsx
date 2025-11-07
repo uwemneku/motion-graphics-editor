@@ -1,9 +1,7 @@
 import { useAppDispatch } from "@/app/store";
-import { type ReactNode } from "react";
-import { CiImageOn } from "react-icons/ci";
-import { FaRegCircle, FaRegSquare } from "react-icons/fa6";
-import { LuShapes } from "react-icons/lu";
-import { RiText } from "react-icons/ri";
+import { Icon } from "@iconify/react";
+import { motion } from "motion/react";
+import { useState, type ReactNode } from "react";
 import type { NodeType } from "../../../types";
 import { useCanvasWorkerContext } from "../screen/canvas-worker-context";
 import { addShape } from "./slice";
@@ -41,7 +39,6 @@ function ShapePicker() {
       reader.onload = async function (event) {
         // check of file is video
         const isVideo = file.type.startsWith("video/");
-        console.log({ isVideo });
 
         const imgSrc = event.target?.result;
         if (typeof imgSrc === "string") {
@@ -81,8 +78,8 @@ function ShapePicker() {
   }
 
   return (
-    <div className="relative flex gap-2">
-      <div className="flex items-center">
+    <div className="relative flex text-xl">
+      <div className="flex items-center gap-4 border-r-2 border-gray-500 p-2 px-4">
         <button className="relative">
           <input
             type="file"
@@ -90,10 +87,10 @@ function ShapePicker() {
             accept="image/*,video/*"
             onChange={handleImageChange}
           />
-          <CiImageOn className="z-0" size={24} />
+          <Icon className="z-0" icon={"material-symbols:image-outline"} />
         </button>
         <div className="group relative">
-          <LuShapes size={24} />
+          <Icon className="z-0" icon={"streamline-ultimate:shapes"} />
           <div className="absolute -top-[200%] bottom-0 -left-full hidden -translate-x-[40%] pl-5 group-hover:block">
             <div className="flex gap-3 rounded-full border bg-white px-3 py-1">
               {nodeData.map((e) => (
@@ -108,22 +105,62 @@ function ShapePicker() {
             </div>
           </div>
         </div>
-        <RiText className="z-0" size={24} />
+        <Icon className="z-0" icon={"fluent:text-t-16-filled"} />
       </div>
-      <div className="p-2">
-        <div className="rounded-sm bg-black p-2 text-white">
-          <button>Animate</button>
-          <button>De</button>
-        </div>
-      </div>
+      <SwitchMode />
     </div>
   );
 }
 
+const SwitchMode = () => {
+  const [mode, setMode] = useState<"design" | "animate">("design");
+
+  const isDesignMode = mode === "design";
+  const translateX = isDesignMode ? "0%" : "100%";
+  const borderRadius = isDesignMode ? "0.25rem" : "0.5rem";
+
+  const toggleMode = (_mode: typeof mode) => () => {
+    setMode(_mode);
+  };
+  return (
+    <div className="relative flex min-h-[40px] items-center overflow-hidden text-black">
+      <motion.div
+        className="absolute top-0 left-0 h-full w-1/2 p-1"
+        animate={{ translateX }}
+        transition={{ bounce: 0 }}
+      >
+        <motion.div
+          className="h-full w-full bg-blue-400"
+          animate={{
+            borderRadius: "0.25rem",
+            borderTopRightRadius: borderRadius,
+            borderBottomRightRadius: borderRadius,
+          }}
+        />
+      </motion.div>
+
+      <motion.button className="relative z-10 h-full px-3" onClick={toggleMode("design")}>
+        <Icon
+          icon="fluent:design-ideas-48-regular"
+          className="transition-colors"
+          color={isDesignMode ? "white" : "black"}
+        />
+      </motion.button>
+      <motion.button className="relative z-10 h-full px-3" onClick={toggleMode("animate")}>
+        <Icon
+          icon="tabler:video"
+          color={!isDesignMode ? "white" : "black"}
+          className="transition-colors"
+        />
+      </motion.button>
+    </div>
+  );
+};
+
 const nodeData: { type: NodeType; el: ReactNode }[] = [
   // { type: "text", el: <PiTextAaBold className="z-0" size={24} /> },
-  { type: "circle", el: <FaRegCircle className="z-0" size={24} /> },
-  { type: "square", el: <FaRegSquare className="z-0" size={24} /> },
+  { type: "circle", el: <Icon className="z-0" icon={"material-symbols:image-outline"} /> },
+  { type: "square", el: <Icon className="z-0" icon={"streamline-ultimate:shapes"} /> },
 ];
 
 export default ShapePicker;

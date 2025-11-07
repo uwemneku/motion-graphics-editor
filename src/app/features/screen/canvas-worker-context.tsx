@@ -1,6 +1,6 @@
 import { proxy, transfer } from "comlink";
 import { createContext, useContext, useRef, useState, type PropsWithChildren } from "react";
-import { App } from "../shapes/rectangle";
+import { App } from "../shapes/app";
 import CanvasWorkerProxy from "../web-workers/main-thread-exports";
 
 type WrapClassMethodInPromise<T> = {
@@ -11,42 +11,54 @@ type WrapClassMethodInPromise<T> = {
 
 type ICanvasWorkerContext = {
   initializeCanvasWorker: (
-    offscreenCanvas: OffscreenCanvas,
+    canvas: HTMLCanvasElement,
     width: number,
     height: number,
     pixelRatio: number,
     callback: Element["getBoundingClientRect"],
   ) => void;
   app?: WrapClassMethodInPromise<App>;
+  hasInitializedWorker: boolean;
 };
 
 const CanvasWorkerContext = createContext<ICanvasWorkerContext>({
   initializeCanvasWorker() {},
+  hasInitializedWorker: false,
 });
 
 function CanvasWorkerProvider(props: PropsWithChildren) {
   const app = useRef<WrapClassMethodInPromise<App>>(undefined);
-  const [trigger, setTrigger] = useState(0);
-
-  console.log({ app: app.current });
+  const [hasInitializedWorker, setHasInitializedWorker] = useState(false);
 
   const initializeCanvasWorker: ICanvasWorkerContext["initializeCanvasWorker"] = async (
-    offscreenCanvas: OffscreenCanvas,
+    canvas: HTMLCanvasElement,
     width: number,
     height: number,
     pixelRatio,
     callback,
   ) => {
+    const isWebWorkerEnabled = true;
+    const ClassInstance = isWebWorkerEnabled ? CanvasWorkerProxy : App;
+    const getOffscreenCanvas = () => {
+      const offscreenCanvas = canvas.transferControlToOffscreen();
+      return transfer(offscreenCanvas, [offscreenCanvas]);
+    };
     const _callback = proxy(callback);
-    app.current = await new CanvasWorkerProxy(
-      transfer(offscreenCanvas, [offscreenCanvas]),
+    app.current = await new ClassInstance(
+      isWebWorkerEnabled ? getOffscreenCanvas() : canvas,
       width,
       height,
       pixelRatio,
       _callback,
     );
-    app.current?.registerUpperC(_callback);
-    setTrigger((prev) => prev + 1);
+    app.current?.addEventListener("getBoundingClientRect", _callback);
+    app.current?.addEventListener(
+      "updateCursor",
+      proxy((e: string) => {
+        canvas.style.cursor = e;
+      }),
+    );
+    setHasInitializedWorker(true);
   };
 
   return (
@@ -54,6 +66,7 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
       value={{
         initializeCanvasWorker,
         app: app.current,
+        hasInitializedWorker,
       }}
     >
       {props.children}

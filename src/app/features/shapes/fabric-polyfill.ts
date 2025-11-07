@@ -1,5 +1,5 @@
 import { IS_WEB_WORKER } from "../web-workers/globals";
-import { App } from "./rectangle";
+import { App } from "./app";
 
 if (IS_WEB_WORKER) {
   self.document = {
@@ -19,6 +19,7 @@ if (IS_WEB_WORKER) {
               },
               append: () => {},
               addEventListener: () => {},
+              removeEventListener: () => {},
               ownerDocument: {
                 documentElement: {
                   clientLeft: 0,
@@ -30,8 +31,15 @@ if (IS_WEB_WORKER) {
           break;
         case "canvas": {
           const id = crypto.randomUUID();
+          let isUpperCanvas = false;
 
-          const canvas = new OffscreenCanvas(100, 100);
+          class A extends OffscreenCanvas {
+            constructor(width: number, height: number) {
+              super(width, height);
+            }
+          }
+          const canvas = new A(100, 100);
+
           Object.assign(canvas, {
             style: {
               setProperty: () => {},
@@ -41,17 +49,26 @@ if (IS_WEB_WORKER) {
               return res;
             },
             hasAttribute: () => {},
-            setAttribute: () => {},
+            setAttribute: ((qualifiedName, value) => {
+              if (qualifiedName === "data-fabric" && value == "top") {
+                isUpperCanvas = true;
+              }
+            }) as HTMLElement["setAttribute"],
             addEventListener: (...args: Parameters<HTMLCanvasElement["addEventListener"]>) => {
-              const [type, func = () => {}, options = {}] = args;
-              App.addEventListeners[type] = func;
+              if (isUpperCanvas) {
+                const [type, func = () => {}, options = {}] = args;
+                App.addUpperCanvasEventListeners[type] = func;
+              }
             },
+            removeEventListener() {},
             ownerDocument: {
               documentElement: {
                 clientLeft: 0,
-                // addEventListener: () => {},
+                addEventListener: () => {},
+                removeEventListener: () => {},
               },
               addEventListener: () => {},
+              removeEventListener: () => {},
               defaultView: {
                 // attached resize observer to detect changes in size of the canvas
                 addEventListener: () => {},
