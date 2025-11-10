@@ -16,11 +16,11 @@ gsap.registerPlugin(GSDevTools);
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <Provider store={store}>
-      <CanvasWorkerProvider>
-        <TimeLineContextProvider>
+      <TimeLineContextProvider>
+        <CanvasWorkerProvider>
           <AppLayout />
-        </TimeLineContextProvider>
-      </CanvasWorkerProvider>
+        </CanvasWorkerProvider>
+      </TimeLineContextProvider>
     </Provider>
   </StrictMode>,
 );

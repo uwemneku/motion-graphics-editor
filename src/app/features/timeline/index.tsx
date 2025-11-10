@@ -10,8 +10,8 @@ import { useScreenContext } from "../../context/screenContext/context";
 import { selectShape } from "../shapes/slice";
 import { useShapesRecordContext } from "../shapes/useShapesRecordContext";
 import { useTimelineContext } from "./context/useTimelineContext";
-import { TimeStamp } from "./f";
 import KeyFrames from "./keyframes";
+import { TimeStamp } from "./Timestamp";
 
 const TIMELINE_DURATION = 10; // seconds
 function Timeline() {

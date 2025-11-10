@@ -21,3 +21,9 @@
   --color-primary: var(--color-primary);
   --color-highlight: var(--color-highlight);
 }
+
+body {
+  height: 100dvh;
+  width: 100dvw;
+  overflow: hidden;
+}

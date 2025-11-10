@@ -8,12 +8,13 @@ export const TimeStamp = memo(() => {
   const seconds = Math.floor(currentTime % 60);
   const milliseconds = Math.floor((currentTime % 1) * 100);
   //
-  const formattedTime = `${String(minutes).padStart(2, "0")}:${String(
-    seconds,
-  ).padStart(2, "0")}:${String(milliseconds).padStart(2, "0")}`;
+  const formattedTime = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
+    2,
+    "0",
+  )}:${String(milliseconds).padStart(2, "0")}`;
   return (
     <div>
-      <p>{formattedTime}</p>
+      <p className="select-none">{formattedTime}</p>
     </div>
   );
 });

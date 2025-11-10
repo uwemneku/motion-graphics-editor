@@ -5,17 +5,16 @@ import gsap from "gsap";
 import type { Node, NodeConfig } from "konva/lib/Node";
 import { useMotionValue } from "motion/react";
 import { useRef, type PropsWithChildren } from "react";
-import { useShapesRecordContext } from "../../shapes/useShapesRecordContext";
 import { setCurrentTime, setIsPaused, updateKeyFrame } from "../slice";
 import { TimeLineContext, type ITimeLineContext } from "./useTimelineContext";
 
 function TimeLineContextProvider(props: PropsWithChildren) {
   const dispatch = useAppDispatch();
   const motionValueTimelineProgress = useMotionValue(0);
-  const shapesRecordContext = useShapesRecordContext();
   const timeline = useRef(
     gsap.timeline({
       paused: true,
+
       onUpdate() {
         const time = timeline.time();
         motionValueTimelineProgress.set(timeline.progress());
@@ -23,10 +22,12 @@ function TimeLineContextProvider(props: PropsWithChildren) {
       },
     }),
   ).current;
-  const has = useRef(false);
-  if (!has.current) {
-    timeline.to("#root", { duration: 10 });
-    has.current = true;
+  const setDefaultTime = useRef(false);
+  if (!setDefaultTime.current) {
+    timeline.to({}, { duration: 10 });
+    console.log(timeline.totalDuration(), "totoal");
+
+    setDefaultTime.current = true;
   }
 
   const play = () => {
@@ -48,17 +49,12 @@ function TimeLineContextProvider(props: PropsWithChildren) {
   const addKeyFrame: ITimeLineContext["addKeyFrame"] = (shapeId, _keyFrame) => {
     const keyframeId = crypto.randomUUID();
     const keyFrame = { ..._keyFrame, id: keyframeId };
-    const node = shapesRecordContext.getShape(shapeId);
-    if (!node) return;
+    // const node = shapesRecordContext.getShape(shapeId);
+    return;
     const nodeKeyFrames =
-      dispatch(
-        dispatchableSelector((state) => state.timeline.keyFrames[shapeId]),
-      ) || [];
+      dispatch(dispatchableSelector((state) => state.timeline.keyFrames[shapeId])) || [];
     if (!node) return;
-    const { insertIndex, keyframes } = insertKeyFrameIntoElementTimeline(
-      keyFrame,
-      nodeKeyFrames,
-    );
+    const { insertIndex, keyframes } = insertKeyFrameIntoElementTimeline(keyFrame, nodeKeyFrames);
     addTimeline(shapeId, node, insertIndex, keyFrame, keyframes, timeline);
     dispatch(updateKeyFrame({ keyframes, shapeId: shapeId }));
   };
@@ -103,8 +99,7 @@ const addTimeline = (
     timeline.pause(prevKeyFrame?.timeStamp || 0);
     const t = timeline.getById(`${keyFrame.timeStamp}${elementId}`);
     if (t) timeline.remove(t); // remove existing tween with same id
-    const keyFrameDuration =
-      keyFrame?.timeStamp - (prevKeyFrame?.timeStamp || 0);
+    const keyFrameDuration = keyFrame?.timeStamp - (prevKeyFrame?.timeStamp || 0);
 
     timeline.to(
       node,

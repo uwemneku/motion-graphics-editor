@@ -4,15 +4,17 @@ import { AnimatePresence, motion } from "motion/react";
 import { useState, type ReactNode } from "react";
 import type { EditorMode, NodeType } from "../../../types";
 import { useCanvasWorkerContext } from "../screen/canvas-worker-context";
+import { TimeStamp } from "../timeline/Timestamp";
 import { addShape } from "./slice";
 
 interface Props {
   onModeSwitch: (mode: EditorMode) => void;
+  initiMode: EditorMode;
 }
 function ShapePicker(props: Props) {
   const dispatch = useAppDispatch();
   const canvasContext = useCanvasWorkerContext();
-  const [mode, setMode] = useState<EditorMode>("design");
+  const [mode, setMode] = useState<EditorMode>(props.initiMode);
 
   function handleAddNode(shape: NodeType) {
     const app = canvasContext.app;
@@ -103,7 +105,7 @@ function ShapePicker(props: Props) {
               animate={{ backdropFilter: "blur(0px)", opacity: 1, scale: 1 }}
               exit={{ backdropFilter: "blur(10px)", opacity: 0, scale: 0.9 }}
             >
-              <button className="relative">
+              <button className="relative overflow-hidden">
                 <input
                   type="file"
                   className="absolute left-0 z-10 h-full w-full cursor-pointer bg-black opacity-0"
@@ -114,8 +116,8 @@ function ShapePicker(props: Props) {
               </button>
               <div className="group relative">
                 <Icon className="z-0" icon={"streamline-ultimate:shapes"} />
-                <div className="absolute -top-[200%] bottom-0 -left-full hidden -translate-x-[40%] pl-5 group-hover:block">
-                  <div className="flex gap-3 rounded-full border bg-white px-3 py-1">
+                <div className="absolute -top-[300%] bottom-0 -left-full hidden -translate-x-[25%] pl-5 group-hover:block">
+                  <div className="flex gap-3 rounded-md border-2 border-gray-300 bg-white px-3 py-1">
                     {nodeData.map((e) => (
                       <button
                         className="relative rounded-full p-1 transition-transform hover:scale-[105%] hover:bg-black hover:text-white active:scale-95 hover:[&>svg]:scale-75"
@@ -146,7 +148,7 @@ function ShapePicker(props: Props) {
                 <Icon icon={"famicons:play"} className="text-blue-400" />
               </button>
               <div>
-                00:00{"  "}/{"  "}10:00
+                <TimeStamp />
               </div>
             </motion.div>
           )}
@@ -209,8 +211,8 @@ const SwitchMode = (props: Pick<Props, "onModeSwitch"> & { mode: EditorMode }) =
 
 const nodeData: { type: NodeType; el: ReactNode }[] = [
   // { type: "text", el: <PiTextAaBold className="z-0" size={24} /> },
-  { type: "circle", el: <Icon className="z-0" icon={"material-symbols:image-outline"} /> },
-  { type: "square", el: <Icon className="z-0" icon={"streamline-ultimate:shapes"} /> },
+  { type: "circle", el: <Icon className="z-0" icon={"tdesign:circle"} /> },
+  { type: "square", el: <Icon className="z-0" icon={"material-symbols-light:square-outline"} /> },
 ];
 
 export default ShapePicker;

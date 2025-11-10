@@ -1,5 +1,7 @@
+import { useAppDispatch } from "@/app/store";
 import { proxy } from "comlink";
 import { useCallback, useEffect, useRef, useState, type MouseEventHandler } from "react";
+import { deleteShape } from "../shapes/slice";
 import { useCanvasWorkerContext } from "./canvas-worker-context";
 
 function Screen() {
@@ -12,6 +14,7 @@ function Screen() {
   const isDragging = useRef(false);
   const dragDistance = useRef(dragInit);
   const isMoving = useRef(false);
+  const dispatch = useAppDispatch();
 
   const registerWorker = async (node: HTMLCanvasElement, container: HTMLDivElement) => {
     if (canvasNode.current) return;
@@ -21,8 +24,6 @@ function Screen() {
     const width = node.clientWidth;
     node.width = width * (window.devicePixelRatio || 1);
     node.height = height * (window.devicePixelRatio || 1);
-
-    console.log(container);
 
     await canvasContext.initializeCanvasWorker(node, width, height, window.devicePixelRatio || 1, {
       containerRef: container,
@@ -36,11 +37,15 @@ function Screen() {
       switch (e.key) {
         case "Backspace":
         case "Delete":
-          canvasContext.app?.deleteSelectedShapes();
+          canvasContext.app?.deleteSelectedShapes().then((ids) => {
+            ids.forEach((id) => {
+              dispatch(deleteShape(id));
+            });
+          });
           break;
       }
     },
-    [canvasContext.app],
+    [canvasContext.app, dispatch],
   );
 
   const handleMouseUp = useCallback(() => {
@@ -62,13 +67,6 @@ function Screen() {
         x: event.clientX - dragData.startClientX,
         y: event.clientY - dragData.startClientY,
       };
-      app?.onMouseMove(
-        change,
-        event.movementX,
-        event.movementY,
-        isControlPressed.current,
-        event.shiftKey,
-      );
     },
     [app],
   );
@@ -137,6 +135,7 @@ function Screen() {
         className="pointer-events-none absolute top-[var(--highlight-rect-top)] left-[var(--highlight-rect-left)] z-20 h-[var(--highlight-rect-height)] w-[var(--highlight-rect-width)] border-2 border-blue-400"
         ref={highlightDiv}
       />
+
       <canvas className="absolute z-10 h-full w-full" />
     </div>
   );

@@ -316,8 +316,8 @@ export class App {
   async createShape(args: CreateShapeArgs) {
     let shape: FabricObject | null = null;
     const id = crypto.randomUUID();
-    const defaultFill = "skyblue";
-    const defaultStroke = "darkblue";
+    const defaultFill = "lightgray";
+    const defaultStroke = "darkgray";
 
     switch (args.type) {
       case "text":
@@ -393,14 +393,17 @@ export class App {
   }
 
   deleteSelectedShapes() {
+    const ids: string[] = [];
     const activeSelections = this.canvas.getActiveObjects();
     activeSelections.forEach((object) => {
       const id = object.id;
       if (id) {
         this.deleteShape(id);
+        ids.push(id);
       }
     });
     this.canvas.discardActiveObject();
+    return ids;
   }
 
   getActiveObjectsId() {
@@ -438,20 +441,6 @@ export class App {
     }
   }
   onMouseUp() {}
-
-  onMouseMove(
-    change: { x: number; y: number },
-    movementX: number,
-    movementY: number,
-    isMouseDown: boolean,
-    shiftKey: boolean,
-  ) {
-    // if (this.selectedShapeId && isMouseDown) {
-    //   const selectedShape = this.shapeMap.get(this.selectedShapeId);
-    //   if (!selectedShape) return;
-    //   this.render();
-    // }
-  }
 
   static async loadFont() {
     const fontUrl = new URL("./f.woff2", import.meta.url);
