@@ -16,8 +16,8 @@ export const counterSlice = createSlice({
   name: "shapes",
   initialState,
   reducers: {
-    addShape: (state, action: { payload: CreateNodeArgs }) => {
-      const id = crypto.randomUUID();
+    addShape: (state, action: { payload: CreateNodeArgs & { id: string } }) => {
+      const id = action.payload.id;
       state.ids.push(id);
       state.data[id] = action.payload;
     },

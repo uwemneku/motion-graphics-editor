@@ -1,5 +1,6 @@
 import type Konva from "konva";
 
+export type EditorMode = "design" | "animate";
 export interface AnimatableProps {
   x?: number;
   y?: number;
@@ -44,7 +45,7 @@ type NodeArgs = {
   circle: void;
   square: void;
   rectangle: void;
-  image: { image: ImageBitmap };
+  image: { image: string };
   text: void;
   video: { src: string };
 };
@@ -54,6 +55,7 @@ export type NodeRecord = CreateNodeArgs;
 export type CreateNodeArgs = {
   [K in keyof NodeArgs]: {
     type: K;
+    previewImage?: string;
     // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   } & (NodeArgs[K] extends void ? {} : NodeArgs[K]);
 }[keyof NodeArgs];

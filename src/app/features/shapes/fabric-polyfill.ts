@@ -24,6 +24,9 @@ if (IS_WEB_WORKER) {
                 documentElement: {
                   clientLeft: 0,
                 },
+                defaultView: {
+                  getComputedStyle() {},
+                },
               },
               defaultView: {},
             };
@@ -72,6 +75,7 @@ if (IS_WEB_WORKER) {
               defaultView: {
                 // attached resize observer to detect changes in size of the canvas
                 addEventListener: () => {},
+                getComputedStyle() {},
               },
             },
             classList: {
@@ -126,6 +130,7 @@ if (IS_WEB_WORKER) {
     requestAnimationFrame: (...d) => {
       r(...d);
     },
-    devicePixelRatio: 2,
+    devicePixelRatio: 1,
+    getComputedStyle: () => {},
   };
 }

@@ -2,36 +2,45 @@ import { useAppDispatch } from "@/app/store";
 import { Icon } from "@iconify/react";
 import { motion } from "motion/react";
 import { useState, type ReactNode } from "react";
-import type { NodeType } from "../../../types";
+import type { EditorMode, NodeType } from "../../../types";
 import { useCanvasWorkerContext } from "../screen/canvas-worker-context";
 import { addShape } from "./slice";
 
-function ShapePicker() {
+interface Props {
+  onModeSwitch: (mode: EditorMode) => void;
+}
+function ShapePicker(props: Props) {
   const dispatch = useAppDispatch();
   const canvasContext = useCanvasWorkerContext();
 
   function handleAddNode(shape: NodeType) {
     const app = canvasContext.app;
-    return function () {
+    return async function () {
+      let id: string | undefined = "";
       switch (shape) {
         case "image":
         case "video":
           break;
         case "square":
-          app?.createShape({ type: "rect", width: 200, height: 200, borderWidth: 0 });
+          id = await app?.createShape({ type: "rect", width: 200, height: 200, borderWidth: 0 });
+          if (id) dispatch(addShape({ id, type: "rectangle" }));
           break;
         case "circle":
-          app?.createShape({ type: "circle", radius: 20 });
+          id = await app?.createShape({ type: "circle", radius: 20 });
+          if (id) dispatch(addShape({ id, type: "circle" }));
+          break;
+        case "text":
+          id = await app?.createShape({ type: "text", text: "HEllo" });
+          if (id) dispatch(addShape({ id, type: "text" }));
           break;
 
         default:
-          dispatch(addShape({ type: shape }));
           break;
       }
     };
   }
 
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     e.stopPropagation();
     const file = e.target.files?.[0];
     if (file) {
@@ -65,12 +74,13 @@ function ShapePicker() {
             }
           }
 
-          canvasContext.app?.createShape({
+          const id = await canvasContext.app?.createShape({
             type: "image",
             width: width,
             height: height,
             src: imgSrc,
           });
+          if (id) dispatch(addShape({ id, type: "image", previewImage: imgSrc, image: imgSrc }));
         }
       };
       reader.readAsDataURL(file);
@@ -79,7 +89,7 @@ function ShapePicker() {
 
   return (
     <div className="relative flex text-xl">
-      <div className="flex items-center gap-4 border-r-2 border-gray-500 p-2 px-4">
+      <div className="flex items-center gap-4 border-r-2 border-gray-300 p-2 px-4">
         <button className="relative">
           <input
             type="file"
@@ -105,15 +115,15 @@ function ShapePicker() {
             </div>
           </div>
         </div>
-        <Icon className="z-0" icon={"fluent:text-t-16-filled"} />
+        <Icon onClick={handleAddNode("text")} className="z-0" icon={"fluent:text-t-16-filled"} />
       </div>
-      <SwitchMode />
+      <SwitchMode onModeSwitch={props.onModeSwitch} />
     </div>
   );
 }
 
-const SwitchMode = () => {
-  const [mode, setMode] = useState<"design" | "animate">("design");
+const SwitchMode = (props: Pick<Props, "onModeSwitch">) => {
+  const [mode, setMode] = useState<EditorMode>("design");
 
   const isDesignMode = mode === "design";
   const translateX = isDesignMode ? "0%" : "100%";
@@ -121,6 +131,7 @@ const SwitchMode = () => {
 
   const toggleMode = (_mode: typeof mode) => () => {
     setMode(_mode);
+    props.onModeSwitch(_mode);
   };
   return (
     <div className="relative flex min-h-[40px] items-center overflow-hidden text-black">

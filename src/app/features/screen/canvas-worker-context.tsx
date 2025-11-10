@@ -1,7 +1,9 @@
 import { proxy, transfer } from "comlink";
+import gsap from "gsap";
 import { createContext, useContext, useRef, useState, type PropsWithChildren } from "react";
 import { App } from "../shapes/app";
 import CanvasWorkerProxy from "../web-workers/main-thread-exports";
+import type { FrontendCallback } from "../web-workers/types";
 
 type WrapClassMethodInPromise<T> = {
   [K in keyof T]: T[K] extends (...args: any[]) => any
@@ -15,35 +17,66 @@ type ICanvasWorkerContext = {
     width: number,
     height: number,
     pixelRatio: number,
-    callback: Element["getBoundingClientRect"],
+    options: {
+      containerRef?: HTMLDivElement;
+    },
   ) => void;
-  app?: WrapClassMethodInPromise<App>;
+  app?: typeof CanvasWorkerProxy;
   hasInitializedWorker: boolean;
-};
+} & Pick<FrontendCallback, "clearShapeHighlight" | "highlightShape">;
 
 const CanvasWorkerContext = createContext<ICanvasWorkerContext>({
   initializeCanvasWorker() {},
   hasInitializedWorker: false,
+  highlightShape(width, height, top, left) {},
+  clearShapeHighlight() {},
 });
 
 function CanvasWorkerProvider(props: PropsWithChildren) {
-  const app = useRef<WrapClassMethodInPromise<App>>(undefined);
+  const app = useRef<typeof CanvasWorkerProxy>(undefined);
+  const containerRef = useRef<HTMLDivElement | null>(undefined);
+
   const [hasInitializedWorker, setHasInitializedWorker] = useState(false);
+
+  const highlightShape: FrontendCallback["highlightShape"] = (width, height, top, left) => {
+    const PADDING = 10;
+    if (containerRef?.current)
+      gsap.to(containerRef.current, {
+        "--highlight-rect-width": `${width + PADDING}px`,
+        "--highlight-rect-height": `${height + PADDING}px`,
+        "--highlight-rect-top": `${top - PADDING / 2}px`,
+        "--highlight-rect-left": `${left - PADDING / 2}px`,
+        duration: 0,
+      });
+  };
+
+  const clearShapeHighlight: FrontendCallback["clearShapeHighlight"] = () => {
+    if (containerRef?.current)
+      gsap.to(containerRef.current, {
+        "--highlight-rect-width": `${0}px`,
+        "--highlight-rect-height": `${0}px`,
+        "--highlight-rect-top": `${0}px`,
+        "--highlight-rect-left": `${0}px`,
+        duration: 0,
+      });
+  };
 
   const initializeCanvasWorker: ICanvasWorkerContext["initializeCanvasWorker"] = async (
     canvas: HTMLCanvasElement,
     width: number,
     height: number,
     pixelRatio,
-    callback,
+    options,
   ) => {
+    containerRef.current = options.containerRef;
     const isWebWorkerEnabled = true;
     const ClassInstance = isWebWorkerEnabled ? CanvasWorkerProxy : App;
     const getOffscreenCanvas = () => {
       const offscreenCanvas = canvas.transferControlToOffscreen();
       return transfer(offscreenCanvas, [offscreenCanvas]);
     };
-    const _callback = proxy(callback);
+
+    const _callback = proxy(() => options?.containerRef?.getBoundingClientRect());
     app.current = await new ClassInstance(
       isWebWorkerEnabled ? getOffscreenCanvas() : canvas,
       width,
@@ -58,6 +91,8 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
         canvas.style.cursor = e;
       }),
     );
+    app.current?.addEventListener("highlightShape", proxy(highlightShape));
+    app.current?.addEventListener("clearShapeHighlight", proxy(clearShapeHighlight));
     setHasInitializedWorker(true);
   };
 
@@ -67,6 +102,8 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
         initializeCanvasWorker,
         app: app.current,
         hasInitializedWorker,
+        clearShapeHighlight,
+        highlightShape,
       }}
     >
       {props.children}

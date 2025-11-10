@@ -4,6 +4,8 @@ declare module "fabric" {
   interface FabricObject {
     id?: string;
     name?: string;
+    src?: string;
+    previewImage?: string;
   }
 
   interface SerializedObjectProps {

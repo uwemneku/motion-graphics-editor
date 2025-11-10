@@ -1,7 +1,8 @@
 export type ShapeArgs = {
   rect: { width: number; height: number };
   circle: { radius: number };
-  image: { src: string; width: number; height: number };
+  image: { src: string; width?: number; height?: number };
+  text: { text: string; fontSize?: string; color?: string };
 };
 export type CreateShapeArgs = {
   [K in keyof ShapeArgs]: ShapeArgs[K] & { type: K; x?: number; y?: number; borderWidth?: number };
@@ -43,3 +44,14 @@ export interface IOffscreenRenderer {
     }>,
   ) => void;
 }
+
+export type FrontendCallback = {
+  getBoundingClientRect: () => DOMRect | undefined;
+  updateCursor: (e: string) => void;
+  onDeleteObject: (id: string) => void;
+  onSelectShape: (id: string[]) => void;
+  highlightShape: (width: number, height: number, top: number, left: number) => void;
+  clearShapeHighlight: () => void;
+  "object:scaling": (width: number, height: number) => void;
+  "object:rotating": (angle: number) => void;
+};

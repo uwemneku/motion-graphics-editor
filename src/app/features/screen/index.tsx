@@ -7,26 +7,26 @@ function Screen() {
   const app = canvasContext.app;
   const canvasNode = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const highlightDiv = useRef<HTMLDivElement>(null);
   const isControlPressed = useRef(false);
   const isDragging = useRef(false);
   const dragDistance = useRef(dragInit);
   const isMoving = useRef(false);
 
-  const registerWorker = async (node: HTMLCanvasElement) => {
+  const registerWorker = async (node: HTMLCanvasElement, container: HTMLDivElement) => {
     if (canvasNode.current) return;
     canvasNode.current = node;
+    containerRef.current = container;
     const height = node.clientHeight;
     const width = node.clientWidth;
     node.width = width * (window.devicePixelRatio || 1);
     node.height = height * (window.devicePixelRatio || 1);
 
-    await canvasContext.initializeCanvasWorker(
-      node,
-      width,
-      height,
-      window.devicePixelRatio || 1,
-      () => containerRef.current?.getBoundingClientRect(),
-    );
+    console.log(container);
+
+    await canvasContext.initializeCanvasWorker(node, width, height, window.devicePixelRatio || 1, {
+      containerRef: container,
+    });
   };
 
   const handleKeyDown = useCallback(
@@ -73,6 +73,14 @@ function Screen() {
     [app],
   );
 
+  const registerMouseEvents =
+    (type: keyof HTMLElementEventMap): MouseEventHandler<HTMLDivElement> =>
+    (e) => {
+      const offset = containerRef?.current?.getBoundingClientRect();
+      const c = removeFunctions(e, devicePixelRatio, { x: offset?.left || 0, y: offset?.top || 0 });
+      canvasContext.app?.handleMouseCallback(type, c);
+    };
+
   useEffect(() => {
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -100,77 +108,36 @@ function Screen() {
   return (
     <div
       className="relative h-full w-full bg-[#F5F5F5]"
-      ref={containerRef}
-      onMouseDown={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("mousedown", c);
+      // ref={containerRef}
+      ref={(node) => {
+        if (node && !canvasNode.current) {
+          const canvas = node.getElementsByTagName("canvas")[0];
+          registerWorker(canvas, node);
+        }
       }}
-      onMouseMove={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("mousemove", c);
-      }}
-      onMouseOut={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("mouseout", c);
-      }}
-      onMouseUp={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("mouseup", c);
-      }}
-      onWheel={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("wheel", c);
-      }}
-      onContextMenu={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("contextmenu", c);
-      }}
-      onMouseEnter={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("mouseenter", c);
-      }}
-      onClick={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("click", c);
-      }}
-      onDoubleClick={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("dblclick", c);
-      }}
-      onDrag={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("drag", c);
-      }}
-      onDragEnd={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("dragend", c);
-      }}
-      onDragEnter={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("dragenter", c);
-      }}
-      onDragLeave={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("dragleave", c);
-      }}
-      onDragOver={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("dragover", c);
-      }}
-      onDrop={(e) => {
-        const c = removeFunctions(e);
-        canvasContext.app?.handleMouseCallback("drop", c);
-      }}
+      onMouseDown={registerMouseEvents("mousedown")}
+      onMouseMove={registerMouseEvents("mousemove")}
+      onMouseOut={registerMouseEvents("mouseout")}
+      onMouseUp={registerMouseEvents("mouseup")}
+      onWheel={registerMouseEvents("wheel")}
+      onContextMenu={registerMouseEvents("contextmenu")}
+      onMouseEnter={registerMouseEvents("mouseenter")}
+      onClick={registerMouseEvents("click")}
+      onDoubleClick={registerMouseEvents("dblclick")}
+      onDrag={registerMouseEvents("drag")}
+      onDragEnd={registerMouseEvents("dragend")}
+      onDragEnter={registerMouseEvents("dragenter")}
+      onDragLeave={registerMouseEvents("dragleave")}
+      onDragOver={registerMouseEvents("dragover")}
+      onDrop={registerMouseEvents("drop")}
     >
       <FloatingSize />
-      <canvas
-        className="absolute z-10 h-full w-full"
-        ref={(node) => {
-          if (node && !canvasNode.current) {
-            registerWorker(node);
-          }
-        }}
+      <div
+        data-id="highlight rect"
+        className="pointer-events-none absolute top-[var(--highlight-rect-top)] left-[var(--highlight-rect-left)] z-20 h-[var(--highlight-rect-height)] w-[var(--highlight-rect-width)] border-2 border-blue-400"
+        ref={highlightDiv}
       />
+      <canvas className="absolute z-10 h-full w-full" />
     </div>
   );
 }
@@ -184,14 +151,18 @@ type ITransformersData = {
   disableTranslateX?: boolean;
 };
 
-const removeFunctions = (obj: MouseEvent, devicePixelRatio = window.devicePixelRatio) => {
+const removeFunctions = (
+  obj: MouseEvent,
+  devicePixelRatio = window.devicePixelRatio,
+  offset = { x: 0, y: 0 },
+) => {
   // extract all non-function properties from obj
   return {
     altKey: obj.altKey,
     button: obj.button,
     buttons: obj.buttons,
-    clientX: (obj.clientX - 136) * devicePixelRatio,
-    clientY: obj.clientY * devicePixelRatio,
+    clientX: (obj.clientX - offset.x) * devicePixelRatio,
+    clientY: (obj.clientY - offset.y) * devicePixelRatio,
     ctrlKey: obj.ctrlKey,
     metaKey: obj.metaKey,
     movementX: obj.movementX,

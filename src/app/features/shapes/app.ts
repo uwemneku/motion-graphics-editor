@@ -3,33 +3,27 @@ import {
   Circle,
   config,
   controlsUtils,
+  FabricImage,
   FabricObject,
-  Image,
   InteractiveFabricObject,
+  IText,
   Rect,
   type TPointerEvent,
 } from "fabric";
 import { IS_WEB_WORKER } from "../web-workers/globals";
-import type { CreateShapeArgs } from "../web-workers/types";
+import type { CreateShapeArgs, FrontendCallback } from "../web-workers/types";
 
 // Needed handle missing API in worker
+import { getShapeCoordinates } from "@/app/util/util";
 import "./fabric-polyfill";
-
-type FrontendCallback = {
-  getBoundingClientRect: Element["getBoundingClientRect"];
-  updateCursor: (e: string) => void;
-  "object:scaling": (width: number, height: number) => void;
-  onAddObject: (id: string) => void;
-  onDeleteObject: (id: string) => void;
-  "object:rotating": (angle: number) => void;
-};
 
 export class App {
   private canvas: Canvas;
   private shapeMap = new Map<string, FabricObject>();
-  private selectedShapeId = "";
 
+  private _selectedShapes: string[] = [];
   private clipRect: Rect;
+  private highlightRect: Rect;
 
   // These static properties should only be used in web workers
   static addUpperCanvasEventListeners: Record<string, (data: TPointerEvent) => void> = {};
@@ -47,6 +41,7 @@ export class App {
     height: number,
     devicePixelRatio = 2,
   ) {
+    App.loadFont();
     {
       // Add missing properties to make offscreen canvas work in web worker
       if (IS_WEB_WORKER) {
@@ -64,11 +59,10 @@ export class App {
             documentElement: {
               clientLeft: 0,
               addEventListener: () => {},
-              defaultView: {},
             },
-          },
-          defaultView: {
-            addEventListener: () => {},
+            defaultView: {
+              getComputedStyle() {},
+            },
           },
           hasAttribute: () => {},
           setAttribute: () => {},
@@ -115,12 +109,23 @@ export class App {
       height: 400,
       absolutePositioned: true,
       strokeWidth: 2,
-      stroke: "black",
-      fill: "#f5f5f5",
+      stroke: "#d1d5dc",
+      fill: "white",
       top: 0,
       left: 0,
       evented: false,
       selectable: false,
+    });
+
+    this.highlightRect = new Rect({
+      evented: false,
+      selectable: false,
+      strokeWidth: 2,
+      stroke: "rgb(81 162 255)",
+      width: 10,
+      height: 10,
+      fill: "transparent",
+      opacity: 1,
     });
 
     // add and position clip rect
@@ -147,9 +152,46 @@ export class App {
     this.canvas.on("object:rotating", ({ target }) => {
       this.frontEndCallBack?.["object:rotating"]?.(target.angle);
     });
+    this.canvas.on("selection:created", () => {
+      const ids = this.getActiveObjectsId();
+      this.selectedShapes = ids;
+    });
+    this.canvas.on("selection:updated", () => {
+      const ids = this.getActiveObjectsId();
+      this.selectedShapes = ids;
+    });
+    this.canvas.on("selection:cleared", () => {
+      const ids = this.getActiveObjectsId();
+      this.selectedShapes = ids;
+    });
+    this.canvas.on("mouse:over", ({ target }) => {
+      if (target) {
+        const isActive = this.selectedShapes?.includes(target.id || "");
+        if (isActive) return;
+        const coordinates = getShapeCoordinates(target);
+        this.frontEndCallBack?.highlightShape?.(
+          coordinates.width,
+          coordinates.height,
+          coordinates.top,
+          coordinates.left,
+        );
+      }
+    });
+    this.canvas.on("mouse:out", () => {
+      this.frontEndCallBack?.clearShapeHighlight?.();
+    });
 
     // currently used to test
     this.createShape({ type: "rect", height: 200, width: 100 });
+  }
+
+  set selectedShapes(ids: string[]) {
+    this.frontEndCallBack?.clearShapeHighlight?.();
+    this.frontEndCallBack?.onSelectShape?.(ids);
+    this._selectedShapes = ids;
+  }
+  get selectedShapes() {
+    return this._selectedShapes;
   }
 
   addEventListener(
@@ -168,6 +210,15 @@ export class App {
         this.frontEndCallBack[args[0]] = args[1];
         break;
       case "object:rotating":
+        this.frontEndCallBack[args[0]] = args[1];
+        break;
+      case "highlightShape":
+        this.frontEndCallBack[args[0]] = args[1];
+        break;
+      case "clearShapeHighlight":
+        this.frontEndCallBack[args[0]] = args[1];
+        break;
+      case "onSelectShape":
         this.frontEndCallBack[args[0]] = args[1];
         break;
       default: {
@@ -191,7 +242,7 @@ export class App {
     this.render();
   }
 
-  async createImage(src: string, options?: { width?: number; height?: number }) {
+  private async createImage(src: string, options?: { width?: number; height?: number }) {
     try {
       const imgBlob = await (await fetch(src)).blob();
       const bitmapImage = await createImageBitmap(imgBlob);
@@ -199,12 +250,22 @@ export class App {
       const ctx = offscreen.getContext("2d");
       if (!ctx) return;
       ctx.drawImage(bitmapImage, 0, 0);
-      const fabricImage = new Image(offscreen as unknown as HTMLCanvasElement, {
+
+      const fabricImage = new FabricImage(offscreen as unknown as HTMLCanvasElement, {
         height: bitmapImage.height,
         width: bitmapImage.width,
         left: 0,
         top: 0,
       });
+      fabricImage.getSrc = () => src;
+
+      const previewCanvas = new OffscreenCanvas(bitmapImage.height / 2, bitmapImage.width / 2);
+      previewCanvas.getContext("2d")?.drawImage(bitmapImage, 0, 0);
+      previewCanvas.convertToBlob().then(async (blob) => {
+        const url = URL.createObjectURL(blob);
+        fabricImage.previewImage = url;
+      });
+
       if (options) {
         if (options.height) fabricImage.scaleToHeight(options.height);
         if (options.width) fabricImage.scaleToWidth(options.width);
@@ -213,10 +274,12 @@ export class App {
         const maxImageWidth = this.clipRect.width * 0.7;
         const maxImageHeight = this.clipRect.height * 0.7;
 
-        if (bitmapImage.width > maxImageWidth) {
+        if (fabricImage.width > maxImageWidth) {
           fabricImage.scaleToWidth(maxImageWidth);
           fabricImage.scaleToHeight(maxImageWidth / imageAspectRation);
-        } else if (bitmapImage.height > maxImageHeight) {
+        }
+
+        if (fabricImage.height > maxImageHeight) {
           fabricImage.scaleToHeight(maxImageHeight);
           fabricImage.scaleToWidth(maxImageHeight * imageAspectRation);
         }
@@ -253,18 +316,28 @@ export class App {
   async createShape(args: CreateShapeArgs) {
     let shape: FabricObject | null = null;
     const id = crypto.randomUUID();
+    const defaultFill = "skyblue";
+    const defaultStroke = "darkblue";
 
     switch (args.type) {
+      case "text":
+        {
+          const text = new IText(args.text, {
+            fontFamily: "lato",
+          });
+          shape = text;
+        }
+        break;
       case "rect":
         {
           const rect = new Rect({
             left: 0,
             top: 0,
-            fill: "black",
+            fill: defaultFill,
             width: args.width,
             height: args.height,
             strokeWidth: 2,
-            stroke: "red",
+            stroke: defaultStroke,
             rx: 0,
             ry: 0,
             hasControls: true,
@@ -276,9 +349,9 @@ export class App {
         {
           shape = new Circle({
             radius: 65,
-            fill: "#039BE5",
+            fill: defaultFill,
             left: 0,
-            stroke: "red",
+            stroke: defaultStroke,
             strokeWidth: 3,
           });
         }
@@ -299,6 +372,7 @@ export class App {
       this.shapeMap.set(id, shape);
       this.canvas.centerObject(shape);
       this.canvas.add(shape);
+      return id;
     }
   }
 
@@ -308,6 +382,13 @@ export class App {
       this.canvas.remove(shape);
       shape.dispose();
       this.shapeMap.delete(id);
+    }
+  }
+
+  selectShape(id: string) {
+    const shape = this.shapeMap.get(id);
+    if (shape) {
+      this.canvas.setActiveObject(shape);
     }
   }
 
@@ -322,6 +403,40 @@ export class App {
     this.canvas.discardActiveObject();
   }
 
+  getActiveObjectsId() {
+    const ids = this.canvas
+      .getActiveObjects()
+      ?.map((i) => i.id)
+      ?.filter((i): i is string => Boolean(i));
+
+    return ids;
+  }
+
+  getShapeCoordinatesByID(id: string) {
+    const shape = this.shapeMap.get(id);
+    if (shape) {
+      return getShapeCoordinates(shape);
+    }
+  }
+
+  async getShapeImage(id: string) {
+    const shape = this.shapeMap.get(id);
+    if (shape) {
+      if (shape instanceof FabricImage) {
+        const canvas = shape._element as unknown as OffscreenCanvas;
+        const blob = await canvas.convertToBlob({ quality: 0.5, type: "image/jpeg" });
+        return await URL.createObjectURL(blob);
+      }
+
+      const t = shape.toCanvasElement({
+        withoutShadow: true,
+        enableRetinaScaling: false,
+        multiplier: 0.5,
+      }) as unknown as OffscreenCanvas;
+      const b = await t.convertToBlob();
+      return await URL.createObjectURL(b);
+    }
+  }
   onMouseUp() {}
 
   onMouseMove(
@@ -331,11 +446,19 @@ export class App {
     isMouseDown: boolean,
     shiftKey: boolean,
   ) {
-    if (this.selectedShapeId && isMouseDown) {
-      const selectedShape = this.shapeMap.get(this.selectedShapeId);
-      if (!selectedShape) return;
+    // if (this.selectedShapeId && isMouseDown) {
+    //   const selectedShape = this.shapeMap.get(this.selectedShapeId);
+    //   if (!selectedShape) return;
+    //   this.render();
+    // }
+  }
 
-      this.render();
-    }
+  static async loadFont() {
+    const fontUrl = new URL("./f.woff2", import.meta.url);
+    const buffer = await (await fetch(fontUrl)).arrayBuffer();
+    const font = new FontFace("lato", `url(${fontUrl.href})`);
+    self.fonts.add(font);
+    await font.load();
+    console.log("loaded");
   }
 }

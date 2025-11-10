@@ -6,7 +6,6 @@ import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
 import AppLayout from "./app/canvas/layout.tsx";
 import CanvasWorkerProvider from "./app/features/screen/canvas-worker-context.tsx";
-import ShapesRecordContextProvider from "./app/features/shapes/context.tsx";
 import TimeLineContextProvider from "./app/features/timeline/context/index.tsx";
 import { store } from "./app/store/index.ts";
 import KonvaPlugin from "./app/util/plugin.ts";
@@ -18,11 +17,9 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <Provider store={store}>
       <CanvasWorkerProvider>
-        <ShapesRecordContextProvider>
-          <TimeLineContextProvider>
-            <AppLayout />
-          </TimeLineContextProvider>
-        </ShapesRecordContextProvider>
+        <TimeLineContextProvider>
+          <AppLayout />
+        </TimeLineContextProvider>
       </CanvasWorkerProvider>
     </Provider>
   </StrictMode>,
