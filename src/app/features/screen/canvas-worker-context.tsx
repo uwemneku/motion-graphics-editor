@@ -1,7 +1,7 @@
 import { proxy, transfer } from "comlink";
 import gsap from "gsap";
 import { createContext, useContext, useRef, useState, type PropsWithChildren } from "react";
-import { App } from "../shapes/app";
+import { App } from "../web-workers/app";
 import CanvasWorkerProxy from "../web-workers/main-thread-exports";
 import type { FrontendCallback } from "../web-workers/types";
 
@@ -38,14 +38,17 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
 
   const [hasInitializedWorker, setHasInitializedWorker] = useState(false);
 
-  const highlightShape: FrontendCallback["highlightShape"] = (width, height, top, left) => {
+  const highlightShape: FrontendCallback["highlightShape"] = (width, height, top, left, angle) => {
     const PADDING = 10;
+    console.log({ left });
+
     if (containerRef?.current)
       gsap.to(containerRef.current, {
         "--highlight-rect-width": `${width + PADDING}px`,
         "--highlight-rect-height": `${height + PADDING}px`,
-        "--highlight-rect-top": `${top - PADDING / 2}px`,
-        "--highlight-rect-left": `${left - PADDING / 2}px`,
+        "--highlight-rect-top": `${top - height / 2 - PADDING / 2}px`,
+        "--highlight-rect-left": `${left - width / 2 - PADDING / 2}px`,
+        "--highlight-rect-angle": `${angle}deg`,
         duration: 0,
       });
   };
@@ -57,6 +60,7 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
         "--highlight-rect-height": `${0}px`,
         "--highlight-rect-top": `${0}px`,
         "--highlight-rect-left": `${0}px`,
+        "--highlight-rect-angle": `${0}`,
         duration: 0,
       });
   };

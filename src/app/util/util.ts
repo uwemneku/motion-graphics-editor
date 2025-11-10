@@ -22,5 +22,5 @@ export function getShapeCoordinates(object: FabricObject) {
   const height = object.height * object.scaleY + (object.strokeWidth || 0);
   const left = object.left;
   const top = object.top;
-  return { width, height, top, left };
+  return { width, height, top, left, angle: object.angle };
 }

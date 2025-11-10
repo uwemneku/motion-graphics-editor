@@ -1,10 +1,7 @@
 import { useAppDispatch } from "@/app/store";
 import { useRef } from "react";
 import { deleteShape } from "./slice";
-import {
-  ShapesRecordContext,
-  type IShapesRecordContext,
-} from "./useShapesRecordContext";
+import { ShapesRecordContext, type IShapesRecordContext } from "./useShapesRecordContext";
 
 function ShapesRecordContextProvider(props: React.PropsWithChildren) {
   const dispatch = useAppDispatch();

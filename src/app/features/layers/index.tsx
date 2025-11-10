@@ -39,6 +39,7 @@ function ShapeDetails(props: { id: string }) {
             coordinates?.height,
             coordinates?.top,
             coordinates?.left,
+            coordinates.angle,
           );
       }}
       onMouseOut={canvasContext.clearShapeHighlight}

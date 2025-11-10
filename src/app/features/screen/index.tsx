@@ -2,10 +2,12 @@ import { useAppDispatch } from "@/app/store";
 import { proxy } from "comlink";
 import { useCallback, useEffect, useRef, useState, type MouseEventHandler } from "react";
 import { deleteShape } from "../shapes/slice";
+import { useTimelineContext } from "../timeline/context/useTimelineContext";
 import { useCanvasWorkerContext } from "./canvas-worker-context";
 
 function Screen() {
   const canvasContext = useCanvasWorkerContext();
+  const timelineContext = useTimelineContext();
   const app = canvasContext.app;
   const canvasNode = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -43,9 +45,12 @@ function Screen() {
             });
           });
           break;
+        case " ":
+          timelineContext.play();
+          break;
       }
     },
-    [canvasContext.app, dispatch],
+    [canvasContext.app, dispatch, timelineContext],
   );
 
   const handleMouseUp = useCallback(() => {
@@ -129,10 +134,10 @@ function Screen() {
       onDragOver={registerMouseEvents("dragover")}
       onDrop={registerMouseEvents("drop")}
     >
-      <FloatingSize />
+      <FloatingHUDLabel />
       <div
         data-id="highlight rect"
-        className="pointer-events-none absolute top-[var(--highlight-rect-top)] left-[var(--highlight-rect-left)] z-20 h-[var(--highlight-rect-height)] w-[var(--highlight-rect-width)] border-2 border-blue-400"
+        className="pointer-events-none absolute top-[var(--highlight-rect-top)] left-[var(--highlight-rect-left)] z-20 h-[var(--highlight-rect-height)] w-[var(--highlight-rect-width)] rotate-[var(--highlight-rect-angle)] border-2 border-blue-400"
         ref={highlightDiv}
       />
 
@@ -198,7 +203,7 @@ const dragInit = {
   },
 };
 
-function FloatingSize() {
+function FloatingHUDLabel() {
   const MOUSE_PADDING = 20;
   const [size, setSize] = useState<string>();
   const canvasContext = useCanvasWorkerContext();
@@ -209,14 +214,14 @@ function FloatingSize() {
   if (!hasAttachedListener.current && canvasContext.hasInitializedWorker) {
     canvasContext.app?.addEventListener(
       "object:scaling",
-      proxy((width: number, height: number) => {
+      proxy((id: string, width: number, height: number) => {
         if (!isMouseDown.current) return;
         setSize(`${width.toFixed(0)} x ${height.toFixed(0)}`);
       }),
     );
     canvasContext.app?.addEventListener(
       "object:rotating",
-      proxy((angle: number) => {
+      proxy((id: string, angle: number) => {
         if (!isMouseDown.current) return;
         setSize(`${angle.toFixed(0)}°`);
       }),

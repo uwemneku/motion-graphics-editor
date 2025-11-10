@@ -1,5 +1,12 @@
 import { useAppSelector } from "@/app/store";
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEventHandler,
+} from "react";
 import LayersSideMenu from "../layers";
 import { useTimelineContext } from "./context/useTimelineContext";
 
@@ -32,53 +39,62 @@ function TimelineTimeStampHeader() {
   const timelineCurrentTime = useAppSelector((e) => e.timeline.currentTime);
   const [width, setWidth] = useState<number>();
   const isMouseDown = useRef(false);
-  const initDetails = useRef({ left: 0, startX: 0, maxOffset: 0 });
+  const initDetails = useRef({ left: 0, startX: 0, maxOffset: 0, width: 0 });
   const trackDiv = useRef<HTMLDivElement>(null);
+
   const progress = (timelineCurrentTime / timeline.timeline.totalDuration()) * 100;
 
-  const handleMouseUp = (e: MouseEvent) => {
+  const handleMouseUp = useCallback((e: Pick<MouseEvent, "clientX">) => {
     if (!isMouseDown.current) return;
-
     isMouseDown.current = false;
-    initDetails.current.left = Math.min(
-      initDetails.current.maxOffset,
-      Math.max(0, initDetails.current.left + (e.clientX - initDetails.current.startX)),
-    );
-  };
+    initDetails.current.left = getPlayHeadLeftOffset(e.clientX);
+  }, []);
 
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!isMouseDown.current) return;
-      const left = Math.min(
-        initDetails.current.maxOffset,
-        Math.max(0, initDetails.current.left + (e.clientX - initDetails.current.startX)),
-      );
+  const seekToMousePosition = useCallback(
+    (e: Pick<MouseEvent, "clientX">, skipMouseDownCheck = false) => {
+      if (!skipMouseDownCheck && !isMouseDown.current) return;
+      const left = getPlayHeadLeftOffset(e.clientX);
       const progress = (left / initDetails.current.maxOffset) * duration;
       timeline.timeline.seek(progress, false);
-
-      // trackDiv.current?.style?.setProperty("left", `${left}px`);
     },
     [duration, timeline],
   );
 
+  const handleClick: MouseEventHandler = (e) => {
+    const { left = 0 } = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const p = e.clientX - left;
+    const progress = (p / initDetails.current.maxOffset) * duration;
+    trackDiv.current?.style.setProperty("transition", "left 0.5s");
+    timeline.timeline.seek(progress, false);
+    initDetails.current.left = p;
+  };
+
+  const getPlayHeadLeftOffset = (clientX = 0) => {
+    const deltaX = clientX - initDetails.current.startX;
+    const left = Math.min(
+      initDetails.current.maxOffset,
+      Math.max(0, initDetails.current.left + deltaX),
+    );
+    return left;
+  };
+
   useEffect(() => {
     window.addEventListener("mouseup", handleMouseUp);
-    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mousemove", seekToMousePosition);
     return () => {
       window.removeEventListener("mouseup", handleMouseUp);
-      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mousemove", seekToMousePosition);
     };
-  }, [handleMouseMove]);
+  }, [seekToMousePosition, handleMouseUp]);
 
   return (
     <div
       className="relative h-full"
       style={{ width, marginLeft: PADDING_LEFT }}
+      onMouseDown={handleClick}
       ref={(node) => {
         if (!node || width) return;
         const elementWidth = node.getBoundingClientRect().width - PADDING_RIGHT - PADDING_LEFT;
-        console.log({ elementWidth });
-
         initDetails.current.maxOffset = elementWidth;
         setWidth(elementWidth);
       }}
@@ -86,7 +102,14 @@ function TimelineTimeStampHeader() {
       {/* -------------------------------------------------------------------------- */}
       {/* Timeline tract */}
       {/* -------------------------------------------------------------------------- */}
-      <div className="absolute flex flex-col" ref={trackDiv} style={{ left: `${progress}%` }}>
+      <div
+        className="absolute flex flex-col"
+        ref={trackDiv}
+        style={{ left: `${progress}%` }}
+        onTransitionEnd={(e) => {
+          e.currentTarget.style.setProperty("transition", "none");
+        }}
+      >
         <div
           onMouseDown={(e) => {
             e.stopPropagation();
@@ -102,17 +125,26 @@ function TimelineTimeStampHeader() {
         <div className="h-[400px] w-[2px] bg-blue-400" />
       </div>
       {/* ========= */}
-      <div className="relative z-10 mt-auto flex h-full w-full flex-1 items-end">
-        {new Array(duration).fill("").map((_, index) => (
-          <div className="flex-1" key={index}>
-            <p className="pointer-events-none w-fit -translate-x-[calc(50%-1px)] bg-white/50 pb-1 text-xs text-gray-500 select-none">
-              {index}
-            </p>
-          </div>
-        ))}
+      <div className="relative z-10 flex h-full items-end">
+        <div className="flex w-full flex-1">
+          {new Array(duration).fill("").map((_, index) => (
+            <div className="flex-1">
+              <Time time={index} key={index} />
+            </div>
+          ))}
+        </div>
+        <Time time={duration} />
       </div>
     </div>
   );
 }
+
+const Time = (props: { time: number }) => {
+  return (
+    <p className="pointer-events-none w-fit -translate-x-[calc(50%-1px)] bg-white/50 pb-1 text-xs text-gray-500 select-none">
+      {props.time}
+    </p>
+  );
+};
 
 export default FloatingTimeline;

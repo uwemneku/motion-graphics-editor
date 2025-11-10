@@ -1,5 +1,5 @@
-import { IS_WEB_WORKER } from "../web-workers/globals";
 import { App } from "./app";
+import { IS_WEB_WORKER } from "./globals";
 
 if (IS_WEB_WORKER) {
   self.document = {

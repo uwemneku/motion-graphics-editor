@@ -16,7 +16,7 @@ function ShapePicker(props: Props) {
   const canvasContext = useCanvasWorkerContext();
   const [mode, setMode] = useState<EditorMode>(props.initiMode);
 
-  function handleAddNode(shape: NodeType) {
+  function handleAddShape(shape: NodeType) {
     const app = canvasContext.app;
     return async function () {
       let id: string | undefined = "";
@@ -122,7 +122,7 @@ function ShapePicker(props: Props) {
                       <button
                         className="relative rounded-full p-1 transition-transform hover:scale-[105%] hover:bg-black hover:text-white active:scale-95 hover:[&>svg]:scale-75"
                         key={e.type}
-                        onClick={handleAddNode(e.type)}
+                        onClick={handleAddShape(e.type)}
                       >
                         {e.el}
                       </button>
@@ -131,7 +131,7 @@ function ShapePicker(props: Props) {
                 </div>
               </div>
               <Icon
-                onClick={handleAddNode("text")}
+                onClick={handleAddShape("text")}
                 className="z-0"
                 icon={"fluent:text-t-16-filled"}
               />

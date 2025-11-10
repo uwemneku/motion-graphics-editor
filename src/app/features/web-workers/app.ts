@@ -10,8 +10,8 @@ import {
   Rect,
   type TPointerEvent,
 } from "fabric";
-import { IS_WEB_WORKER } from "../web-workers/globals";
-import type { CreateShapeArgs, FrontendCallback } from "../web-workers/types";
+import { IS_WEB_WORKER } from "./globals";
+import type { CreateShapeArgs, FrontendCallback } from "./types";
 
 // Needed handle missing API in worker
 import { getShapeCoordinates } from "@/app/util/util";
@@ -23,7 +23,6 @@ export class App {
 
   private _selectedShapes: string[] = [];
   private clipRect: Rect;
-  private highlightRect: Rect;
 
   // These static properties should only be used in web workers
   static addUpperCanvasEventListeners: Record<string, (data: TPointerEvent) => void> = {};
@@ -117,17 +116,6 @@ export class App {
       selectable: false,
     });
 
-    this.highlightRect = new Rect({
-      evented: false,
-      selectable: false,
-      strokeWidth: 2,
-      stroke: "rgb(81 162 255)",
-      width: 10,
-      height: 10,
-      fill: "transparent",
-      opacity: 1,
-    });
-
     // add and position clip rect
     this.clipRect.width = this.canvas.width * 0.6;
     this.clipRect.height = this.canvas.height * 0.6;
@@ -145,12 +133,27 @@ export class App {
     this.startRenderLoop();
 
     this.canvas.on("object:scaling", ({ target }) => {
-      const newWidth = target.scaleX * target.width;
-      const newHeight = target.scaleY * target.height;
-      this.frontEndCallBack?.["object:scaling"]?.(newWidth, newHeight);
+      this.selectedShapes?.forEach((id) => {
+        const shape = this.shapeMap.get(id);
+        if (!shape) return;
+        const newWidth = shape.scaleX * shape.width;
+        const newHeight = shape.scaleY * shape.height;
+        this.frontEndCallBack?.["object:scaling"]?.(id, newWidth, newHeight);
+      });
     });
     this.canvas.on("object:rotating", ({ target }) => {
-      this.frontEndCallBack?.["object:rotating"]?.(target.angle);
+      this.selectedShapes?.forEach((id) => {
+        const shape = this.shapeMap.get(id);
+        if (!shape) return;
+        this.frontEndCallBack?.["object:rotating"]?.(id, target.angle);
+      });
+    });
+    this.canvas.on("object:moving", ({ target }) => {
+      this.selectedShapes?.forEach((id) => {
+        const shape = this.shapeMap.get(id);
+        if (!shape) return;
+        this.frontEndCallBack?.["object:moving"]?.(id, shape.left, shape.top);
+      });
     });
     this.canvas.on("selection:created", () => {
       const ids = this.getActiveObjectsId();
@@ -167,22 +170,21 @@ export class App {
     this.canvas.on("mouse:over", ({ target }) => {
       if (target) {
         const isActive = this.selectedShapes?.includes(target.id || "");
-        if (isActive) return;
+        const isMultipleItemsSelcted = this.selectedShapes.length > 1;
+        if (isActive || isMultipleItemsSelcted) return;
         const coordinates = getShapeCoordinates(target);
         this.frontEndCallBack?.highlightShape?.(
           coordinates.width,
           coordinates.height,
           coordinates.top,
           coordinates.left,
+          coordinates.angle,
         );
       }
     });
     this.canvas.on("mouse:out", () => {
       this.frontEndCallBack?.clearShapeHighlight?.();
     });
-
-    // currently used to test
-    this.createShape({ type: "rect", height: 200, width: 100 });
   }
 
   set selectedShapes(ids: string[]) {
@@ -219,6 +221,9 @@ export class App {
         this.frontEndCallBack[args[0]] = args[1];
         break;
       case "onSelectShape":
+        this.frontEndCallBack[args[0]] = args[1];
+        break;
+      case "object:moving":
         this.frontEndCallBack[args[0]] = args[1];
         break;
       default: {
@@ -369,6 +374,12 @@ export class App {
     }
     if (shape) {
       shape.id = id;
+      shape.set({
+        originX: "center", // or 'right', 'center', numeric value too
+        originY: "center", // or 'bottom', 'center', numeric value too
+      });
+      console.log(shape.originX, shape.originY);
+
       this.shapeMap.set(id, shape);
       this.canvas.centerObject(shape);
       this.canvas.add(shape);

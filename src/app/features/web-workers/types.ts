@@ -50,8 +50,9 @@ export type FrontendCallback = {
   updateCursor: (e: string) => void;
   onDeleteObject: (id: string) => void;
   onSelectShape: (id: string[]) => void;
-  highlightShape: (width: number, height: number, top: number, left: number) => void;
+  highlightShape: (width: number, height: number, top: number, left: number, angle: number) => void;
   clearShapeHighlight: () => void;
-  "object:scaling": (width: number, height: number) => void;
-  "object:rotating": (angle: number) => void;
+  "object:scaling": (id: string, width: number, height: number) => void;
+  "object:rotating": (id: string, angle: number) => void;
+  "object:moving": (id: string, left: number, top: number) => void;
 };
