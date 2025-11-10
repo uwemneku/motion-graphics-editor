@@ -1,6 +1,6 @@
 import { useAppDispatch } from "@/app/store";
 import { Icon } from "@iconify/react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useState, type ReactNode } from "react";
 import type { EditorMode, NodeType } from "../../../types";
 import { useCanvasWorkerContext } from "../screen/canvas-worker-context";
@@ -12,6 +12,7 @@ interface Props {
 function ShapePicker(props: Props) {
   const dispatch = useAppDispatch();
   const canvasContext = useCanvasWorkerContext();
+  const [mode, setMode] = useState<EditorMode>("design");
 
   function handleAddNode(shape: NodeType) {
     const app = canvasContext.app;
@@ -89,50 +90,88 @@ function ShapePicker(props: Props) {
 
   return (
     <div className="relative flex text-xl">
-      <div className="flex items-center gap-4 border-r-2 border-gray-300 p-2 px-4">
-        <button className="relative">
-          <input
-            type="file"
-            className="absolute left-0 z-10 h-full w-full cursor-pointer bg-black opacity-0"
-            accept="image/*,video/*"
-            onChange={handleImageChange}
-          />
-          <Icon className="z-0" icon={"material-symbols:image-outline"} />
-        </button>
-        <div className="group relative">
-          <Icon className="z-0" icon={"streamline-ultimate:shapes"} />
-          <div className="absolute -top-[200%] bottom-0 -left-full hidden -translate-x-[40%] pl-5 group-hover:block">
-            <div className="flex gap-3 rounded-full border bg-white px-3 py-1">
-              {nodeData.map((e) => (
-                <button
-                  className="relative rounded-full p-1 transition-transform hover:scale-[105%] hover:bg-black hover:text-white active:scale-95 hover:[&>svg]:scale-75"
-                  key={e.type}
-                  onClick={handleAddNode(e.type)}
-                >
-                  {e.el}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <Icon onClick={handleAddNode("text")} className="z-0" icon={"fluent:text-t-16-filled"} />
-      </div>
-      <SwitchMode onModeSwitch={props.onModeSwitch} />
+      <motion.div
+        className="flex items-center gap-4 border-r-2 border-gray-300 p-2 px-4"
+        layout="preserve-aspect"
+      >
+        <AnimatePresence>
+          {mode === "design" ? (
+            <motion.div
+              layout="preserve-aspect"
+              className="flex items-center gap-4"
+              initial={{ backdropFilter: ["blur(5px)"], opacity: [0] }}
+              animate={{ backdropFilter: "blur(0px)", opacity: 1, scale: 1 }}
+              exit={{ backdropFilter: "blur(10px)", opacity: 0, scale: 0.9 }}
+            >
+              <button className="relative">
+                <input
+                  type="file"
+                  className="absolute left-0 z-10 h-full w-full cursor-pointer bg-black opacity-0"
+                  accept="image/*,video/*"
+                  onChange={handleImageChange}
+                />
+                <Icon className="z-0" icon={"material-symbols:image-outline"} />
+              </button>
+              <div className="group relative">
+                <Icon className="z-0" icon={"streamline-ultimate:shapes"} />
+                <div className="absolute -top-[200%] bottom-0 -left-full hidden -translate-x-[40%] pl-5 group-hover:block">
+                  <div className="flex gap-3 rounded-full border bg-white px-3 py-1">
+                    {nodeData.map((e) => (
+                      <button
+                        className="relative rounded-full p-1 transition-transform hover:scale-[105%] hover:bg-black hover:text-white active:scale-95 hover:[&>svg]:scale-75"
+                        key={e.type}
+                        onClick={handleAddNode(e.type)}
+                      >
+                        {e.el}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <Icon
+                onClick={handleAddNode("text")}
+                className="z-0"
+                icon={"fluent:text-t-16-filled"}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              layout="preserve-aspect"
+              className="flex items-center gap-3 text-sm"
+              initial={{ backdropFilter: ["blur(5px)"], opacity: [0] }}
+              animate={{ backdropFilter: "blur(0px)", opacity: 1, scale: 1 }}
+              exit={{ backdropFilter: "blur(10px)", opacity: 0, scale: 0.9 }}
+            >
+              <button>
+                <Icon icon={"famicons:play"} className="text-blue-400" />
+              </button>
+              <div>
+                00:00{"  "}/{"  "}10:00
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+      <SwitchMode
+        onModeSwitch={(mode) => {
+          props.onModeSwitch(mode);
+          setMode(mode);
+        }}
+        mode={mode}
+      />
     </div>
   );
 }
 
-const SwitchMode = (props: Pick<Props, "onModeSwitch">) => {
-  const [mode, setMode] = useState<EditorMode>("design");
-
-  const isDesignMode = mode === "design";
+const SwitchMode = (props: Pick<Props, "onModeSwitch"> & { mode: EditorMode }) => {
+  const isDesignMode = props.mode === "design";
   const translateX = isDesignMode ? "0%" : "100%";
   const borderRadius = isDesignMode ? "0.25rem" : "0.5rem";
 
-  const toggleMode = (_mode: typeof mode) => () => {
-    setMode(_mode);
+  const toggleMode = (_mode: typeof props.mode) => () => {
     props.onModeSwitch(_mode);
   };
+
   return (
     <div className="relative flex min-h-[40px] items-center overflow-hidden text-black">
       <motion.div

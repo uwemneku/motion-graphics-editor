@@ -1,5 +1,106 @@
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import LayersSideMenu from "../layers";
+
 function FloatingTimeline() {
-  return <div className="min-h-full bg-white p-2"></div>;
+  return (
+    <div className="flex min-h-full flex-1 bg-white" style={{ "--size": "40px" } as CSSProperties}>
+      {/* Layers */}
+      <div className="min-h-full max-w-[200px] flex-1 border-r border-gray-300">
+        <div className="h-[var(--size)] border-b border-gray-300"></div>
+        <LayersSideMenu />
+      </div>
+      <div className="flex-1">
+        <div className="h-[var(--size)] border-b border-gray-300">
+          <TimeStamp />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimeStamp() {
+  const PADDING_LEFT = 50;
+  const PADDING_RIGHT = 50;
+
+  const [duration, setDuration] = useState(10);
+  const [progress, setprogress] = useState(0);
+  const [scale, setScale] = useState(1);
+  const [width, setWidth] = useState<number>();
+  const isMouseDown = useRef(false);
+  const initDetails = useRef({ left: 0, startX: 0, maxOffset: 0 });
+  const trackDiv = useRef<HTMLDivElement>(null);
+
+  const handleMouseUp = (e: MouseEvent) => {
+    if (!isMouseDown.current) return;
+
+    isMouseDown.current = false;
+    initDetails.current.left = Math.min(
+      initDetails.current.maxOffset,
+      Math.max(0, initDetails.current.left + (e.clientX - initDetails.current.startX)),
+    );
+  };
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isMouseDown.current) return;
+      const left = Math.min(
+        initDetails.current.maxOffset,
+        Math.max(0, initDetails.current.left + (e.clientX - initDetails.current.startX)),
+      );
+      const progress = (left / initDetails.current.maxOffset) * duration;
+      setprogress(progress);
+      trackDiv.current?.style?.setProperty("left", `${left}px`);
+    },
+    [duration],
+  );
+
+  useEffect(() => {
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => {
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, [handleMouseMove]);
+
+  return (
+    <div
+      className="relative h-full"
+      style={{ width, marginLeft: PADDING_LEFT }}
+      ref={(node) => {
+        if (!node || width) return;
+        const elementWidth = node.getBoundingClientRect().width - PADDING_RIGHT - PADDING_LEFT;
+        console.log({ elementWidth });
+
+        initDetails.current.maxOffset = elementWidth;
+        setWidth(elementWidth);
+      }}
+    >
+      {/* -------------------------------------------------------------------------- */}
+      {/* Timeline tract */}
+      {/* -------------------------------------------------------------------------- */}
+      <div className="absolute z-10 flex flex-col" ref={trackDiv}>
+        <div
+          onMouseDown={(e) => {
+            if (!trackDiv.current) return;
+            isMouseDown.current = true;
+            initDetails.current.startX = e.clientX;
+          }}
+          className="-translate-x-1/2 cursor-grab rounded-sm bg-blue-400 p-1 px-2 text-[10px] font-semibold active:cursor-grabbing"
+        >
+          <span className="pointer-events-none select-none">{progress.toFixed(2)}s</span>
+        </div>
+        <div className="h-[400px] w-[2px] bg-blue-400" />
+      </div>
+      {/*  */}
+      <div className="relative z-0 flex h-full w-full flex-1">
+        {new Array(duration).fill("").map((_, index) => (
+          <div className="flex-1" key={index}>
+            <p className="w-fit -translate-x-1/2 text-xs select-none">{index}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default FloatingTimeline;

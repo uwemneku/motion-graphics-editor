@@ -48,27 +48,32 @@ export default function AppLayout() {
   };
 
   return (
-    <div className="flex h-[100dvh] w-[100dvw]">
-      <aside className="flex w-full max-w-[200px] flex-col border-r border-gray-300 bg-white py-2">
-        <div className="flex-[0.2]"></div>
-        <div className="flex-1">
-          <LayersSideMenu />
-        </div>
-      </aside>
-      <div
-        ref={containerRef}
-        style={{ "--offset": `${OFFSET}px`, "--timeline-offset": "-150%" }}
-        className="relative flex h-full flex-1 flex-col"
-      >
-        <main className="relative flex-1">
-          <div className="relative h-full">
-            <FloatingMenuWrapper className="absolute top-3 right-3 z-30">
-              <ExportFeature2 />
-            </FloatingMenuWrapper>
-            <Screen />
-            {/* <FabricSample /> */}
+    <div
+      className="flex h-[100dvh] w-[100dvw] flex-col"
+      ref={containerRef}
+      style={{ "--offset": `${OFFSET}px`, "--timeline-offset": "-150%" }}
+    >
+      <div className="flex w-full flex-1">
+        <aside className="flex w-full max-w-[200px] flex-col border border-gray-800 bg-white py-2">
+          <div className="flex-[0.2]"></div>
+          <div className="flex-1">
+            <LayersSideMenu />
           </div>
-        </main>
+        </aside>
+        <div className="relative flex h-full flex-1 flex-col">
+          <main className="relative flex-1">
+            <div className="relative h-full">
+              <FloatingMenuWrapper className="absolute top-3 right-3 z-30">
+                <ExportFeature2 />
+              </FloatingMenuWrapper>
+              <Screen />
+            </div>
+          </main>
+        </div>
+      </div>
+
+      {/* TIMELINE FOOTER */}
+      <div>
         <div
           ref={shapesRef}
           className="absolute bottom-0 left-1/2 z-20 flex -translate-x-1/2 -translate-y-[var(--offset)] items-center rounded-xl border-2 border-gray-300 bg-white"
@@ -76,7 +81,7 @@ export default function AppLayout() {
           <ShapePicker onModeSwitch={onEditorModeSwithc} />
         </div>
         <div
-          className={`p-x-2 drop absolute bottom-0 left-1/2 z-10 min-h-[100px] w-full -translate-x-1/2 -translate-y-[var(--timeline-offset)] overflow-hidden border-t border-t-gray-300 bg-white`}
+          className={`p-x-2 drop absolute bottom-0 left-0 z-10 flex min-h-[150px] w-full -translate-y-[var(--timeline-offset)] flex-col overflow-hidden border-t border-t-gray-300`}
           ref={timelineRef}
         >
           <FloatingTimeline />
