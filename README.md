@@ -1,5 +1,11 @@
 # Notes
 
+10/11/2024
+
+- Improved type definitions for the app to improve communication between worker and main thread
+- Better UI design. (Not sure timeline should always be hidden when we switch to design mode)
+- New timeline logic.
+
 3/11/2024
 
 - After translating objects from a worker, fabricObject.setCoords() needs to be called to update the event hitbox
