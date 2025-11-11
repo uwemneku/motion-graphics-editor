@@ -56,3 +56,23 @@ export type FrontendCallback = {
   "object:rotating": (id: string, angle: number) => void;
   "object:moving": (id: string, left: number, top: number) => void;
 };
+
+export type FilteredMouseEvent = Pick<
+  MouseEvent,
+  | "altKey"
+  | "button"
+  | "buttons"
+  | "clientX"
+  | "clientY"
+  | "ctrlKey"
+  | "metaKey"
+  | "movementX"
+  | "movementY"
+  | "pageX"
+  | "pageY"
+  | "screenX"
+  | "screenY"
+  | "shiftKey"
+  | "type"
+  | "timeStamp"
+>;

@@ -1,6 +1,6 @@
 import { useAppSelector } from "@/app/store";
 import { useRef, useState } from "react";
-import { useCanvasWorkerContext } from "../screen/canvas-worker-context";
+import { useCanvasWorkerContext } from "../canvas/useCanvasContext";
 
 function LayersSideMenu() {
   const shapeIds = useAppSelector((state) => state.shapes.ids);

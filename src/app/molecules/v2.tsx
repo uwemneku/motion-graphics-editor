@@ -1,9 +1,6 @@
 import { proxy, wrap, type Remote } from "comlink";
 import { useRef } from "react";
 import { BiExport } from "react-icons/bi";
-import { useScreenContext } from "../context/screenContext/context";
-import { useShapesRecordContext } from "../features/shapes/useShapesRecordContext";
-import { useAppDispatch } from "../store";
 import type { WorkerAPI } from "../util/export-woker";
 import RendererWorker from "../util/export-woker/index?worker";
 
@@ -13,9 +10,6 @@ function ExportFeature2() {
   const r = 10;
   const c = Math.PI * r * 2;
   const ref = useRef<SVGCircleElement>(null);
-  const screenContext = useScreenContext();
-  const shapeContext = useShapesRecordContext();
-  const dispatch = useAppDispatch();
 
   const exportUsingWebWorker = async () => {
     console.time("export_worker");
@@ -35,7 +29,6 @@ function ExportFeature2() {
     const canvas = document.createElement("canvas");
     canvas.width = videoDimensions.width;
     canvas.height = videoDimensions.height;
-    const offscreen = canvas?.transferControlToOffscreen();
 
     //
 

@@ -20,6 +20,8 @@ export function throttle<G = unknown, T extends Array<G> = G[], Y = unknown>(
 export function getShapeCoordinates(object: FabricObject) {
   const width = object.width * object.scaleX + (object.strokeWidth || 0);
   const height = object.height * object.scaleY + (object.strokeWidth || 0);
+  const originX = object.originX;
+  const originY = object.originY;
   const left = object.left;
   const top = object.top;
   return { width, height, top, left, angle: object.angle };

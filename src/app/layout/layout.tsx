@@ -1,10 +1,11 @@
 import type { EditorMode } from "@/types";
 import gsap from "gsap";
-import { useRef } from "react";
+import { useRef, type CSSProperties } from "react";
 import FloatingMenuWrapper from "../components/floating-menu-wrapper";
+import Screen from "../features/canvas";
 import LayersSideMenu from "../features/layers";
-import Screen from "../features/screen";
-import ShapePicker from "../features/shapes/shapes-menu";
+import ShapePicker from "../features/shapes/shapes-add-menu";
+import ShapesEditMenu from "../features/shapes/shapes-edit-menu";
 import FloatingTimeline from "../features/timeline/timeline";
 import ExportFeature2 from "../molecules/v2";
 
@@ -52,7 +53,7 @@ export default function AppLayout() {
   return (
     <div
       className="flex h-[100dvh] max-h-dvh w-[100dvw] flex-col overflow-y-hidden"
-      style={{ "--offset": `${OFFSET}px`, "--timeline-offset": "-150%" }}
+      style={{ "--offset": `${OFFSET}px`, "--timeline-offset": "-150%" } as CSSProperties}
       ref={(node) => {
         if (!hasAnimatedToInitialPosition.current) {
           containerRef.current = node;
@@ -74,6 +75,7 @@ export default function AppLayout() {
               <FloatingMenuWrapper className="absolute top-3 right-3 z-30">
                 <ExportFeature2 />
               </FloatingMenuWrapper>
+              <ShapesEditMenu />
               <Screen />
             </div>
           </main>

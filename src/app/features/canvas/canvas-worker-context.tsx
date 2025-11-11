@@ -1,36 +1,10 @@
 import { proxy, transfer } from "comlink";
 import gsap from "gsap";
-import { createContext, useContext, useRef, useState, type PropsWithChildren } from "react";
+import { useRef, useState, type PropsWithChildren } from "react";
 import { App } from "../web-workers/app";
 import CanvasWorkerProxy from "../web-workers/main-thread-exports";
 import type { FrontendCallback } from "../web-workers/types";
-
-type WrapClassMethodInPromise<T> = {
-  [K in keyof T]: T[K] extends (...args: any[]) => any
-    ? (...args: Parameters<T[K]>) => Promise<ReturnType<T[K]>>
-    : T[K];
-};
-
-type ICanvasWorkerContext = {
-  initializeCanvasWorker: (
-    canvas: HTMLCanvasElement,
-    width: number,
-    height: number,
-    pixelRatio: number,
-    options: {
-      containerRef?: HTMLDivElement;
-    },
-  ) => void;
-  app?: typeof CanvasWorkerProxy;
-  hasInitializedWorker: boolean;
-} & Pick<FrontendCallback, "clearShapeHighlight" | "highlightShape">;
-
-const CanvasWorkerContext = createContext<ICanvasWorkerContext>({
-  initializeCanvasWorker() {},
-  hasInitializedWorker: false,
-  highlightShape(width, height, top, left) {},
-  clearShapeHighlight() {},
-});
+import { CanvasWorkerContext, type ICanvasWorkerContext } from "./useCanvasContext";
 
 function CanvasWorkerProvider(props: PropsWithChildren) {
   const app = useRef<typeof CanvasWorkerProxy>(undefined);
@@ -40,7 +14,7 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
 
   const highlightShape: FrontendCallback["highlightShape"] = (width, height, top, left, angle) => {
     const PADDING = 10;
-    console.log({ left });
+    console.log({ left, angle });
 
     if (containerRef?.current)
       gsap.to(containerRef.current, {
@@ -81,6 +55,8 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
     };
 
     const _callback = proxy(() => options?.containerRef?.getBoundingClientRect());
+
+    //@ts-expect-error error occurs because of have to make app work in either worker env or main thread
     app.current = await new ClassInstance(
       isWebWorkerEnabled ? getOffscreenCanvas() : canvas,
       width,
@@ -114,7 +90,5 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
     </CanvasWorkerContext.Provider>
   );
 }
-
-export const useCanvasWorkerContext = () => useContext(CanvasWorkerContext);
 
 export default CanvasWorkerProvider;

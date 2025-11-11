@@ -3,7 +3,8 @@ import { proxy } from "comlink";
 import { useCallback, useEffect, useRef, useState, type MouseEventHandler } from "react";
 import { deleteShape } from "../shapes/slice";
 import { useTimelineContext } from "../timeline/context/useTimelineContext";
-import { useCanvasWorkerContext } from "./canvas-worker-context";
+import type { FilteredMouseEvent } from "../web-workers/types";
+import { useCanvasWorkerContext } from "./useCanvasContext";
 
 function Screen() {
   const canvasContext = useCanvasWorkerContext();
@@ -14,7 +15,6 @@ function Screen() {
   const highlightDiv = useRef<HTMLDivElement>(null);
   const isControlPressed = useRef(false);
   const isDragging = useRef(false);
-  const dragDistance = useRef(dragInit);
   const isMoving = useRef(false);
   const dispatch = useAppDispatch();
 
@@ -61,27 +61,16 @@ function Screen() {
     isMoving.current = false;
   }, [app]);
 
-  /* -------------------------------------------------------------------------- */
-  /* -------------------------------------------------------------------------- */
-  const handleMouseMove: MouseEventHandler<HTMLDivElement> = useCallback(
-    async (event) => {
-      if (!isMoving.current) return;
-
-      const dragData = dragDistance.current;
-      const change = {
-        x: event.clientX - dragData.startClientX,
-        y: event.clientY - dragData.startClientY,
-      };
-    },
-    [app],
-  );
-
   const registerMouseEvents =
     (type: keyof HTMLElementEventMap): MouseEventHandler<HTMLDivElement> =>
     (e) => {
       const offset = containerRef?.current?.getBoundingClientRect();
-      const c = removeFunctions(e, devicePixelRatio, { x: offset?.left || 0, y: offset?.top || 0 });
-      canvasContext.app?.handleMouseCallback(type, c);
+      const filteredEvents = filterMouseEventAttributes(e, devicePixelRatio, {
+        x: offset?.left || 0,
+        y: offset?.top || 0,
+      });
+      //@ts-expect-error filteredEvents are min properties needed from `TPointerEvent` for app to work
+      canvasContext.app?.handleMouseCallback(type, filteredEvents);
     };
 
   useEffect(() => {
@@ -97,16 +86,14 @@ function Screen() {
       resizeObserver.observe(canvasNode.current);
     }
 
-    window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       resizeObserver.disconnect();
       window.removeEventListener("mouseup", handleMouseUp);
-      window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [canvasContext, handleKeyDown, handleMouseMove, handleMouseUp]);
+  }, [canvasContext, handleKeyDown, handleMouseUp]);
 
   return (
     <div
@@ -146,17 +133,8 @@ function Screen() {
   );
 }
 
-type ITransformersData = {
-  allowedDirections?: ("x" | "y")[];
-  x?: number;
-  y?: number;
-  yPosition: "top" | "center" | "bottom";
-  xPosition: "left" | "center" | "right";
-  disableTranslateX?: boolean;
-};
-
-const removeFunctions = (
-  obj: MouseEvent,
+const filterMouseEventAttributes = (
+  obj: FilteredMouseEvent,
   devicePixelRatio = window.devicePixelRatio,
   offset = { x: 0, y: 0 },
 ) => {
@@ -178,29 +156,7 @@ const removeFunctions = (
     shiftKey: obj.shiftKey,
     type: obj.type,
     timeStamp: obj.timeStamp,
-    // add more properties if needed
   };
-};
-
-const dragInit = {
-  startClientX: 0,
-  startClientY: 0,
-  startX: 0,
-  startY: 0,
-  offsetX: 0,
-  offsetY: 0,
-  shapeHeight: 0,
-  shapeWidth: 0,
-  currentShapeWidth: 0,
-  xDirection: 0,
-  yDirection: 0,
-  disableTranslateX: false,
-  position: "top-left" as `${ITransformersData["yPosition"]}-${ITransformersData["xPosition"]}`,
-  id: "",
-  scale: {
-    x: 1,
-    y: 1,
-  },
 };
 
 function FloatingHUDLabel() {

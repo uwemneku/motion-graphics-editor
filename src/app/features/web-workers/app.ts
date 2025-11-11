@@ -365,6 +365,7 @@ export class App {
         {
           const _shape = await this.createImage(args.src);
           if (_shape) {
+            //@ts-expect-error TODO: Read up on why FabricObject cannot be type casted to FabricImage
             shape = _shape;
           }
         }
@@ -375,8 +376,8 @@ export class App {
     if (shape) {
       shape.id = id;
       shape.set({
-        originX: "center", // or 'right', 'center', numeric value too
-        originY: "center", // or 'bottom', 'center', numeric value too
+        originX: 0.5, // or 'right', 'center', numeric value too
+        originY: 0.5, // or 'bottom', 'center', numeric value too
       });
       console.log(shape.originX, shape.originY);
 
@@ -457,6 +458,7 @@ export class App {
     const fontUrl = new URL("./f.woff2", import.meta.url);
     const buffer = await (await fetch(fontUrl)).arrayBuffer();
     const font = new FontFace("lato", `url(${fontUrl.href})`);
+    //@ts-expect-error TODO: figure out how to add self.fonts to type declaration
     self.fonts.add(font);
     await font.load();
     console.log("loaded");

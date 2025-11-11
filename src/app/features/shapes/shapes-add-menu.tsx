@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState, type ReactNode } from "react";
 import type { EditorMode, NodeType } from "../../../types";
-import { useCanvasWorkerContext } from "../screen/canvas-worker-context";
+import { useCanvasWorkerContext } from "../canvas/useCanvasContext";
 import { TimeStamp } from "../timeline/Timestamp";
 import { addShape } from "./slice";
 
