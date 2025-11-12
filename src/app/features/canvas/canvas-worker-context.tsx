@@ -1,6 +1,8 @@
+import { useAppDispatch } from "@/app/store";
 import { proxy, transfer } from "comlink";
 import gsap from "gsap";
 import { useRef, useState, type PropsWithChildren } from "react";
+import { setCurrentTime } from "../timeline/slice";
 import { App } from "../web-workers/app";
 import CanvasWorkerProxy from "../web-workers/main-thread-exports";
 import type { FrontendCallback } from "../web-workers/types";
@@ -8,6 +10,7 @@ import { CanvasWorkerContext, type ICanvasWorkerContext } from "./useCanvasConte
 
 function CanvasWorkerProvider(props: PropsWithChildren) {
   const app = useRef<typeof CanvasWorkerProxy>(undefined);
+  const dispatch = useAppDispatch();
   const containerRef = useRef<HTMLDivElement | null>(undefined);
 
   const [hasInitializedWorker, setHasInitializedWorker] = useState(false);
@@ -40,7 +43,8 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
   };
 
   const initializeCanvasWorker: ICanvasWorkerContext["initializeCanvasWorker"] = async (
-    canvas: HTMLCanvasElement,
+    canvas,
+    upperCanvas,
     width: number,
     height: number,
     pixelRatio,
@@ -49,8 +53,9 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
     containerRef.current = options.containerRef;
     const isWebWorkerEnabled = true;
     const ClassInstance = isWebWorkerEnabled ? CanvasWorkerProxy : App;
-    const getOffscreenCanvas = () => {
-      const offscreenCanvas = canvas.transferControlToOffscreen();
+    const getOffscreenCanvas = (node: HTMLCanvasElement) => {
+      if (!isWebWorkerEnabled) return node;
+      const offscreenCanvas = node.transferControlToOffscreen();
       return transfer(offscreenCanvas, [offscreenCanvas]);
     };
 
@@ -58,11 +63,11 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
 
     //@ts-expect-error error occurs because of have to make app work in either worker env or main thread
     app.current = await new ClassInstance(
-      isWebWorkerEnabled ? getOffscreenCanvas() : canvas,
+      getOffscreenCanvas(canvas),
+      getOffscreenCanvas(upperCanvas),
       width,
       height,
       pixelRatio,
-      _callback,
     );
     app.current?.addEventListener("getBoundingClientRect", _callback);
     app.current?.addEventListener(
@@ -73,6 +78,12 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
     );
     app.current?.addEventListener("highlightShape", proxy(highlightShape));
     app.current?.addEventListener("clearShapeHighlight", proxy(clearShapeHighlight));
+    app.current?.addEventListener(
+      "timeline:update",
+      proxy((time: number) => {
+        dispatch(setCurrentTime(time));
+      }),
+    );
     setHasInitializedWorker(true);
   };
 

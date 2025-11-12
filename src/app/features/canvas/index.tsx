@@ -1,16 +1,15 @@
 import { useAppDispatch } from "@/app/store";
-import { proxy } from "comlink";
-import { useCallback, useEffect, useRef, useState, type MouseEventHandler } from "react";
+import { useCallback, useEffect, useRef, type MouseEventHandler } from "react";
 import { deleteShape } from "../shapes/slice";
-import { useTimelineContext } from "../timeline/context/useTimelineContext";
 import type { FilteredMouseEvent } from "../web-workers/types";
+import { FloatingHUDLabel } from "./floating-hud-label";
 import { useCanvasWorkerContext } from "./useCanvasContext";
 
 function Screen() {
   const canvasContext = useCanvasWorkerContext();
-  const timelineContext = useTimelineContext();
   const app = canvasContext.app;
   const canvasNode = useRef<HTMLCanvasElement>(null);
+  const upperCanvasNode = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const highlightDiv = useRef<HTMLDivElement>(null);
   const isControlPressed = useRef(false);
@@ -18,7 +17,11 @@ function Screen() {
   const isMoving = useRef(false);
   const dispatch = useAppDispatch();
 
-  const registerWorker = async (node: HTMLCanvasElement, container: HTMLDivElement) => {
+  const registerWorker = async (
+    node: HTMLCanvasElement,
+    container: HTMLDivElement,
+    upperCanvas: HTMLCanvasElement,
+  ) => {
     if (canvasNode.current) return;
     canvasNode.current = node;
     containerRef.current = container;
@@ -27,9 +30,16 @@ function Screen() {
     node.width = width * (window.devicePixelRatio || 1);
     node.height = height * (window.devicePixelRatio || 1);
 
-    await canvasContext.initializeCanvasWorker(node, width, height, window.devicePixelRatio || 1, {
-      containerRef: container,
-    });
+    await canvasContext.initializeCanvasWorker(
+      node,
+      upperCanvas,
+      width,
+      height,
+      window.devicePixelRatio || 1,
+      {
+        containerRef: container,
+      },
+    );
   };
 
   const handleKeyDown = useCallback(
@@ -46,11 +56,11 @@ function Screen() {
           });
           break;
         case " ":
-          timelineContext.play();
+          canvasContext.app?.play();
           break;
       }
     },
-    [canvasContext.app, dispatch, timelineContext],
+    [canvasContext.app, dispatch],
   );
 
   const handleMouseUp = useCallback(() => {
@@ -98,11 +108,13 @@ function Screen() {
   return (
     <div
       className="relative h-full w-full bg-[#F5F5F5]"
+      data-container
       // ref={containerRef}
       ref={(node) => {
         if (node && !canvasNode.current) {
           const canvas = node.getElementsByTagName("canvas")[0];
-          registerWorker(canvas, node);
+          const upperCanvas = node.getElementsByTagName("canvas")[1];
+          registerWorker(canvas, node, upperCanvas);
         }
       }}
       onMouseDown={registerMouseEvents("mousedown")}
@@ -127,8 +139,13 @@ function Screen() {
         className="pointer-events-none absolute top-[var(--highlight-rect-top)] left-[var(--highlight-rect-left)] z-20 h-[var(--highlight-rect-height)] w-[var(--highlight-rect-width)] rotate-[var(--highlight-rect-angle)] border-2 border-blue-400"
         ref={highlightDiv}
       />
-
       <canvas className="absolute z-10 h-full w-full" />
+      <canvas
+        ref={upperCanvasNode}
+        data-upper-canvas
+        className="absolute z-[15] h-full w-full"
+        style={{ touchAction: "none" }}
+      ></canvas>
     </div>
   );
 }
@@ -158,70 +175,5 @@ const filterMouseEventAttributes = (
     timeStamp: obj.timeStamp,
   };
 };
-
-function FloatingHUDLabel() {
-  const MOUSE_PADDING = 20;
-  const [size, setSize] = useState<string>();
-  const canvasContext = useCanvasWorkerContext();
-  const hasAttachedListener = useRef(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const isMouseDown = useRef(false);
-
-  if (!hasAttachedListener.current && canvasContext.hasInitializedWorker) {
-    canvasContext.app?.addEventListener(
-      "object:scaling",
-      proxy((id: string, width: number, height: number) => {
-        if (!isMouseDown.current) return;
-        setSize(`${width.toFixed(0)} x ${height.toFixed(0)}`);
-      }),
-    );
-    canvasContext.app?.addEventListener(
-      "object:rotating",
-      proxy((id: string, angle: number) => {
-        if (!isMouseDown.current) return;
-        setSize(`${angle.toFixed(0)}°`);
-      }),
-    );
-  }
-
-  useEffect(() => {
-    const handleMouseUp = () => {
-      setSize(undefined);
-      isMouseDown.current = false;
-      ref.current?.style.setProperty("opacity", `0`);
-    };
-
-    const getInitialMousePosition = (e: MouseEvent) => {
-      ref.current?.style.setProperty("left", `${e.pageX + MOUSE_PADDING}px`);
-      ref.current?.style.setProperty("top", `${e.pageY + MOUSE_PADDING}px`);
-      isMouseDown.current = true;
-    };
-
-    const moveIndicator = (e: MouseEvent) => {
-      ref.current?.style.setProperty("left", `${e.pageX + MOUSE_PADDING}px`);
-      ref.current?.style.setProperty("top", `${e.pageY + MOUSE_PADDING}px`);
-      ref.current?.style.setProperty("opacity", `1`);
-    };
-    window.addEventListener("mousedown", getInitialMousePosition);
-    window.addEventListener("mousemove", moveIndicator);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      window.removeEventListener("mousedown", getInitialMousePosition);
-      window.removeEventListener("mouseup", handleMouseUp);
-      window.removeEventListener("mousemove", moveIndicator);
-    };
-  }, []);
-
-  if (!size) return null;
-
-  return (
-    <div
-      ref={ref}
-      className="fixed z-20 min-w-[40px] rounded-full bg-blue-400 p-1 text-center text-[10px] font-semibold text-white opacity-0"
-    >
-      {size}
-    </div>
-  );
-}
 
 export default Screen;

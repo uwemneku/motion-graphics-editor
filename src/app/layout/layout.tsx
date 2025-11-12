@@ -33,16 +33,16 @@ export default function AppLayout() {
         });
         break;
       case "design":
-        gsap.to(containerRef.current, {
-          "--offset": OFFSET,
-          duration: 0.5,
-          ease: "power3.out",
-        });
-        gsap.to(containerRef.current, {
-          "--timeline-offset": "-150%",
-          duration: 0.5,
-          ease: "power2.out",
-        });
+        // gsap.to(containerRef.current, {
+        //   "--offset": OFFSET,
+        //   duration: 0.5,
+        //   ease: "power3.out",
+        // });
+        // gsap.to(containerRef.current, {
+        //   "--timeline-offset": "-150%",
+        //   duration: 0.5,
+        //   ease: "power2.out",
+        // });
         break;
 
       default:
@@ -83,7 +83,7 @@ export default function AppLayout() {
       </div>
 
       {/* TIMELINE FOOTER */}
-      <div>
+      <div className="z-20">
         <div
           ref={shapesRef}
           className="absolute bottom-0 left-1/2 z-20 flex -translate-y-[var(--offset)] items-center rounded-xl border-2 border-gray-300 bg-white"

@@ -5,72 +5,76 @@ import {
   controlsUtils,
   FabricImage,
   FabricObject,
+  FabricText,
   InteractiveFabricObject,
-  IText,
   Rect,
   type TPointerEvent,
 } from "fabric";
+import gsap from "gsap";
 import { IS_WEB_WORKER } from "./globals";
 import type { CreateShapeArgs, FrontendCallback } from "./types";
 
 // Needed handle missing API in worker
-import { getShapeCoordinates } from "@/app/util/util";
+import { debounce, getShapeCoordinates, modifyLowerCanvas } from "@/app/util/util";
+import type { AnimatableProps, EditorMode, KeyFrame } from "@/types";
 import "./fabric-polyfill";
 
 export class App {
+  /**Main fabric canvas instance */
   private canvas: Canvas;
-  private shapeMap = new Map<string, FabricObject>();
-
+  /**A record of all fabric object in the canvas */
+  private shapeRecord = new Map<string, FabricObject>();
+  /**Selected shapes in the canvas */
   private _selectedShapes: string[] = [];
+  /**Fabric rect used to clip the canvas */
   private clipRect: Rect;
 
-  // These static properties should only be used in web workers
-  static addUpperCanvasEventListeners: Record<string, (data: TPointerEvent) => void> = {};
-  static getUpperCanvasBoundingClient = () => {};
+  private timeLine = new AppTimeline(10);
 
   /**Stores callback from the main thread */
   private frontEndCallBack: Partial<FrontendCallback> = {};
+
+  /* -------------------------------------------------------------------------- */
+  // These static properties should only be used in web workers for polyfills to make fabric work from a webworker
+  /* -------------------------------------------------------------------------- */
+  /**Stores  callback functions for event listeners fired on the main canvas*/
+  static fabricUpperCanvasEventListenersCallback: Record<string, (data: TPointerEvent) => void> =
+    {};
+  static upperCanvas: OffscreenCanvas;
+  static getUpperCanvasBoundingClient = () => {};
+  /* -------------------------------------------------------------------------- */
+
+  mainThreadTime = 0;
+  mode: EditorMode = "animate";
 
   constructor(
     /**
      * In web worker environments, this should be an offscreenCanvas
      */
     lowerOffscreenCanvas: OffscreenCanvas | HTMLCanvasElement,
+    upperOffscreenCanvas: OffscreenCanvas | HTMLCanvasElement,
+    /**Canvas width */
     width: number,
+    /**Canvas height */
     height: number,
+    /**Device pixel ratio */
     devicePixelRatio = 2,
   ) {
+    // TODO: remove this as it was only added to test loading fonts
     App.loadFont();
     {
       // Add missing properties to make offscreen canvas work in web worker
       if (IS_WEB_WORKER) {
-        lowerOffscreenCanvas.width = width;
-        lowerOffscreenCanvas.height = height;
-        Object.assign(lowerOffscreenCanvas, {
-          style: {
-            width: `${width}px`,
-            height: `${width}px`,
-            isMain: true,
-            // main-canvas-styles
-            setProperty: () => {},
-          },
-          ownerDocument: {
-            documentElement: {
-              clientLeft: 0,
-              addEventListener: () => {},
-            },
-            defaultView: {
-              getComputedStyle() {},
-            },
-          },
-          hasAttribute: () => {},
-          setAttribute: () => {},
-          classList: {
-            add: () => {},
-          },
-        });
+        App.upperCanvas = upperOffscreenCanvas as OffscreenCanvas;
+        modifyLowerCanvas(lowerOffscreenCanvas as OffscreenCanvas, width, height);
       }
     }
+
+    /* -------------------------------------------------------------------------- */
+    this.timeLine.parentTimeLine.eventCallback("onUpdate", () => {
+      this.frontEndCallBack?.["timeline:update"]?.(this.timeLine.parentTimeLine.time());
+    });
+    /* -------------------------------------------------------------------------- */
 
     // Default fabric object configurations
     config.configure({ devicePixelRatio });
@@ -80,6 +84,7 @@ export class App {
     controls.mt.sizeY = controls.mb.sizeY = 5;
     controls.mt.sizeX = controls.mb.sizeX = 20;
 
+    // Styles default controls
     InteractiveFabricObject.ownDefaults.strokeUniform = true;
     InteractiveFabricObject.ownDefaults = {
       ...InteractiveFabricObject.ownDefaults,
@@ -102,6 +107,11 @@ export class App {
       height,
       controlsAboveOverlay: true,
     });
+
+    console.log(this.canvas.elements.upper.el);
+
+    // this.canvas.elements.upper.ctx = upperOffscreenCanvas.getContext("2d");
+    // upperOffscreenCanvas.getBoundingClientRect = App.getUpperCanvasBoundingClient;
 
     this.clipRect = new Rect({
       width: 400,
@@ -132,9 +142,19 @@ export class App {
     this.fitCanvas(width, height);
     this.startRenderLoop();
 
+    /* -------------------------------------------------------------------------- */
+    const onMoveEnd = debounce(this.onMoveEnd.bind(this), 100).bind(this);
+    /* -------------------------------------------------------------------------- */
+
+    /* -------------------------------------------------------------------------- */
+    // Canvas event listeners
+    /* -------------------------------------------------------------------------- */
+    this.canvas.on("mouse:dblclick", ({ target, subTargets }) => {
+      console.log(target, subTargets);
+    });
     this.canvas.on("object:scaling", ({ target }) => {
       this.selectedShapes?.forEach((id) => {
-        const shape = this.shapeMap.get(id);
+        const shape = this.shapeRecord.get(id);
         if (!shape) return;
         const newWidth = shape.scaleX * shape.width;
         const newHeight = shape.scaleY * shape.height;
@@ -143,16 +163,17 @@ export class App {
     });
     this.canvas.on("object:rotating", ({ target }) => {
       this.selectedShapes?.forEach((id) => {
-        const shape = this.shapeMap.get(id);
+        const shape = this.shapeRecord.get(id);
         if (!shape) return;
         this.frontEndCallBack?.["object:rotating"]?.(id, target.angle);
       });
     });
     this.canvas.on("object:moving", ({ target }) => {
       this.selectedShapes?.forEach((id) => {
-        const shape = this.shapeMap.get(id);
+        const shape = this.shapeRecord.get(id);
         if (!shape) return;
         this.frontEndCallBack?.["object:moving"]?.(id, shape.left, shape.top);
+        onMoveEnd(id, target.left, target.top);
       });
     });
     this.canvas.on("selection:created", () => {
@@ -196,6 +217,20 @@ export class App {
     return this._selectedShapes;
   }
 
+  fitCanvas(width: number, height: number) {
+    const devicePixelRatio = config.devicePixelRatio;
+    if (IS_WEB_WORKER) {
+      this.canvas.setDimensions({
+        height: height * devicePixelRatio,
+        width: width * devicePixelRatio,
+      });
+      this.canvas.width = width;
+      this.canvas.height = height;
+    }
+    this.canvas.renderAll();
+    this.render();
+  }
+
   addEventListener(
     ...args: {
       [key in keyof Required<FrontendCallback>]: [key, FrontendCallback[key]];
@@ -226,29 +261,39 @@ export class App {
       case "object:moving":
         this.frontEndCallBack[args[0]] = args[1];
         break;
+      case "timeline:update":
+        this.frontEndCallBack[args[0]] = args[1];
+        break;
       default: {
         const key = args[0];
         this.frontEndCallBack[key] = args[1];
       }
     }
   }
-
-  fitCanvas(width: number, height: number) {
-    const devicePixelRatio = config.devicePixelRatio;
-    if (IS_WEB_WORKER) {
-      this.canvas.setDimensions({
-        height: height * devicePixelRatio,
-        width: width * devicePixelRatio,
-      });
-      this.canvas.width = width;
-      this.canvas.height = height;
+  handleMouseCallback(type: keyof HTMLElementEventMap, data: TPointerEvent) {
+    if (type === "mouseup") {
+      this.canvas._onMouseUp(data);
+      return;
     }
+    App.fabricUpperCanvasEventListenersCallback[type]?.(data);
     this.canvas.renderAll();
-    this.render();
   }
+
+  private render() {
+    this.canvas.renderAll();
+    this.canvas.renderTop();
+  }
+  private startRenderLoop() {
+    this.render();
+    requestAnimationFrame(this.startRenderLoop.bind(this));
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------- */
 
   private async createImage(src: string, options?: { width?: number; height?: number }) {
     try {
+      console.log("loading image");
       const imgBlob = await (await fetch(src)).blob();
       const bitmapImage = await createImageBitmap(imgBlob);
       const offscreen = new OffscreenCanvas(bitmapImage.width, bitmapImage.height);
@@ -256,20 +301,14 @@ export class App {
       if (!ctx) return;
       ctx.drawImage(bitmapImage, 0, 0);
 
+      console.log("Loading image into fabric");
       const fabricImage = new FabricImage(offscreen as unknown as HTMLCanvasElement, {
         height: bitmapImage.height,
         width: bitmapImage.width,
         left: 0,
         top: 0,
       });
-      fabricImage.getSrc = () => src;
-
-      const previewCanvas = new OffscreenCanvas(bitmapImage.height / 2, bitmapImage.width / 2);
-      previewCanvas.getContext("2d")?.drawImage(bitmapImage, 0, 0);
-      previewCanvas.convertToBlob().then(async (blob) => {
-        const url = URL.createObjectURL(blob);
-        fabricImage.previewImage = url;
-      });
+      // fabricImage.getSrc = () => src;
 
       if (options) {
         if (options.height) fabricImage.scaleToHeight(options.height);
@@ -296,29 +335,9 @@ export class App {
     }
   }
 
-  //
-  handleMouseCallback(type: keyof HTMLElementEventMap, data: TPointerEvent) {
-    if (type === "mouseup") {
-      this.canvas._onMouseUp(data);
-      return;
-    }
-    App.addUpperCanvasEventListeners[type]?.(data);
-    this.canvas.renderAll();
-  }
-
-  private render() {
-    this.canvas.renderAll();
-    this.canvas.renderTop();
-  }
-  private startRenderLoop() {
-    this.render();
-    requestAnimationFrame(this.startRenderLoop.bind(this));
-  }
-
-  /* -------------------------------------------------------------------------- */
-  /* -------------------------------------------------------------------------- */
-
   async createShape(args: CreateShapeArgs) {
+    console.log(`creating ${args.type}`);
+
     let shape: FabricObject | null = null;
     const id = crypto.randomUUID();
     const defaultFill = "lightgray";
@@ -327,8 +346,9 @@ export class App {
     switch (args.type) {
       case "text":
         {
-          const text = new IText(args.text, {
+          const text = new FabricText(args.text, {
             fontFamily: "lato",
+            textAlign: "center",
           });
           shape = text;
         }
@@ -379,26 +399,26 @@ export class App {
         originX: 0.5, // or 'right', 'center', numeric value too
         originY: 0.5, // or 'bottom', 'center', numeric value too
       });
-      console.log(shape.originX, shape.originY);
 
-      this.shapeMap.set(id, shape);
+      this.shapeRecord.set(id, shape);
       this.canvas.centerObject(shape);
       this.canvas.add(shape);
+      this.timeLine.parentTimeLine.set(shape, { left: shape.left, top: shape.top }, 0);
       return id;
     }
   }
 
   deleteShape(id: string) {
-    const shape = this.shapeMap.get(id);
+    const shape = this.shapeRecord.get(id);
     if (shape) {
       this.canvas.remove(shape);
       shape.dispose();
-      this.shapeMap.delete(id);
+      this.shapeRecord.delete(id);
     }
   }
 
   selectShape(id: string) {
-    const shape = this.shapeMap.get(id);
+    const shape = this.shapeRecord.get(id);
     if (shape) {
       this.canvas.setActiveObject(shape);
     }
@@ -428,14 +448,14 @@ export class App {
   }
 
   getShapeCoordinatesByID(id: string) {
-    const shape = this.shapeMap.get(id);
+    const shape = this.shapeRecord.get(id);
     if (shape) {
       return getShapeCoordinates(shape);
     }
   }
 
   async getShapeImage(id: string) {
-    const shape = this.shapeMap.get(id);
+    const shape = this.shapeRecord.get(id);
     if (shape) {
       if (shape instanceof FabricImage) {
         const canvas = shape._element as unknown as OffscreenCanvas;
@@ -452,7 +472,36 @@ export class App {
       return await URL.createObjectURL(b);
     }
   }
+
+  private onMoveEnd(...[id, left, top]: Parameters<FrontendCallback["object:moving"]>) {
+    const shape = this.shapeRecord.get(id);
+
+    if (!shape) return;
+    this.timeLine.parentTimeLine.to(
+      shape,
+      {
+        left,
+        top,
+        duration: 10,
+      },
+      1,
+    );
+  }
   onMouseUp() {}
+  play() {
+    if (this.timeLine.parentTimeLine.isActive()) {
+      this.timeLine.parentTimeLine.pause();
+      return;
+    }
+    this.frontEndCallBack.clearShapeHighlight?.();
+    this.canvas.discardActiveObject();
+    this.timeLine.parentTimeLine.play();
+  }
+  seek(...args: Parameters<gsap.core.Timeline["seek"]>) {
+    this.frontEndCallBack.clearShapeHighlight?.();
+    this.canvas.discardActiveObject();
+    this.timeLine.parentTimeLine.seek(...args);
+  }
 
   static async loadFont() {
     const fontUrl = new URL("./f.woff2", import.meta.url);
@@ -462,5 +511,22 @@ export class App {
     self.fonts.add(font);
     await font.load();
     console.log("loaded");
+  }
+}
+
+class AppTimeline {
+  parentTimeLine = gsap.timeline({ paused: true });
+
+  constructor(duration: number) {
+    this.parentTimeLine.to({}, { duration });
+  }
+  addAnimation(object: FabricObject, keyframe: KeyFrame, startTime: number, duration: number) {
+    for (const key in keyframe.animatable) {
+      if (!Object.hasOwn(keyframe.animatable, key)) continue;
+      const value = keyframe.animatable[key as keyof AnimatableProps];
+      const animationKey = `${object.id}-${value}-${startTime}`;
+      this.parentTimeLine.remove(animationKey);
+      this.parentTimeLine.to(object, { [key]: value, id: animationKey, duration }, startTime);
+    }
   }
 }

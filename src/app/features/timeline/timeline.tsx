@@ -7,8 +7,8 @@ import {
   type CSSProperties,
   type MouseEventHandler,
 } from "react";
+import { useCanvasWorkerContext } from "../canvas/useCanvasContext";
 import LayersSideMenu from "../layers";
-import { useTimelineContext } from "./context/useTimelineContext";
 
 function FloatingTimeline() {
   return (
@@ -34,7 +34,8 @@ function FloatingTimeline() {
 function TimelineTimeStampHeader() {
   const PADDING_LEFT = 50;
   const PADDING_RIGHT = 50;
-  const timeline = useTimelineContext();
+
+  const canvasContext = useCanvasWorkerContext();
   const [duration, setDuration] = useState(10);
   const timelineCurrentTime = useAppSelector((e) => e.timeline.currentTime);
   const [width, setWidth] = useState<number>();
@@ -42,7 +43,7 @@ function TimelineTimeStampHeader() {
   const initDetails = useRef({ left: 0, startX: 0, maxOffset: 0, width: 0 });
   const trackDiv = useRef<HTMLDivElement>(null);
 
-  const progress = (timelineCurrentTime / timeline.timeline.totalDuration()) * 100;
+  const progress = (timelineCurrentTime / 10) * 100;
 
   const handleMouseUp = useCallback((e: Pick<MouseEvent, "clientX">) => {
     if (!isMouseDown.current) return;
@@ -55,9 +56,9 @@ function TimelineTimeStampHeader() {
       if (!skipMouseDownCheck && !isMouseDown.current) return;
       const left = getPlayHeadLeftOffset(e.clientX);
       const progress = (left / initDetails.current.maxOffset) * duration;
-      timeline.timeline.seek(progress, false);
+      canvasContext.app?.seek(progress, false);
     },
-    [duration, timeline],
+    [canvasContext.app, duration],
   );
 
   const handleClick: MouseEventHandler = (e) => {
@@ -65,7 +66,7 @@ function TimelineTimeStampHeader() {
     const p = e.clientX - left;
     const progress = (p / initDetails.current.maxOffset) * duration;
     trackDiv.current?.style.setProperty("transition", "left 0.5s");
-    timeline.timeline.seek(progress, false);
+    canvasContext.app?.seek(progress, false);
     initDetails.current.left = p;
   };
 

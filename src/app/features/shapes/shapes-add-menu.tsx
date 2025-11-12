@@ -1,7 +1,7 @@
 import { useAppDispatch } from "@/app/store";
 import { Icon } from "@iconify/react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { EditorMode, NodeType } from "../../../types";
 import { useCanvasWorkerContext } from "../canvas/useCanvasContext";
 import { TimeStamp } from "../timeline/Timestamp";
@@ -15,6 +15,7 @@ function ShapePicker(props: Props) {
   const dispatch = useAppDispatch();
   const canvasContext = useCanvasWorkerContext();
   const [mode, setMode] = useState<EditorMode>(props.initiMode);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   function handleAddShape(shape: NodeType) {
     const app = canvasContext.app;
@@ -33,7 +34,7 @@ function ShapePicker(props: Props) {
           if (id) dispatch(addShape({ id, type: "circle" }));
           break;
         case "text":
-          id = await app?.createShape({ type: "text", text: "HEllo" });
+          id = await app?.createShape({ type: "text", text: "HEllo\nHellofoool\nhello 😂" });
           if (id) dispatch(addShape({ id, type: "text" }));
           break;
 
@@ -56,34 +57,36 @@ function ShapePicker(props: Props) {
         if (typeof imgSrc === "string") {
           const image = new Image();
           image.src = imgSrc;
-          await image.decode();
-          const bitmapImage = await createImageBitmap(image);
-          let width = image.width;
-          let height = image.height;
-          const aspectRation = width / height;
-          const isLandscape = image.width > image.height;
-          const maxWidth = document.body.clientWidth * 0.2;
-          const maxHeight = document.body.clientHeight * 0.6;
-          const shouldScale = isLandscape ? width > maxWidth : height > maxHeight;
+
+          // await image.decode();
+          // const bitmapImage = await createImageBitmap(image);
+          // const width = image.width;
+          // const height = image.height;
+          // const aspectRation = width / height;
+          // const isLandscape = image.width > image.height;
+          // const maxWidth = document.body.clientWidth * 0.2;
+          // const maxHeight = document.body.clientHeight * 0.6;
+          // const shouldScale = isLandscape ? width > maxWidth : height > maxHeight;
 
           // ensure image is always in screen
-          if (shouldScale) {
-            if (isLandscape) {
-              width = maxWidth;
-              height = maxWidth / aspectRation;
-            } else {
-              height = maxHeight;
-              width = maxHeight * aspectRation;
-            }
-          }
+          // if (shouldScale) {
+          //   if (isLandscape) {
+          //     width = maxWidth;
+          //     height = maxWidth / aspectRation;
+          //   } else {
+          //     height = maxHeight;
+          //     width = maxHeight * aspectRation;
+          //   }
+          // }
 
           const id = await canvasContext.app?.createShape({
             type: "image",
-            width: width,
-            height: height,
             src: imgSrc,
           });
           if (id) dispatch(addShape({ id, type: "image", previewImage: imgSrc, image: imgSrc }));
+          if (inputRef.current) {
+            inputRef.current.value = "";
+          }
         }
       };
       reader.readAsDataURL(file);
@@ -111,6 +114,7 @@ function ShapePicker(props: Props) {
                   className="absolute left-0 z-10 h-full w-full cursor-pointer bg-black opacity-0"
                   accept="image/*,video/*"
                   onChange={handleImageChange}
+                  ref={inputRef}
                 />
                 <Icon className="z-0" icon={"material-symbols:image-outline"} />
               </button>

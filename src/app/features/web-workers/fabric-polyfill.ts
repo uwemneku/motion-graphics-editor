@@ -2,6 +2,7 @@ import { App } from "./app";
 import { IS_WEB_WORKER } from "./globals";
 
 if (IS_WEB_WORKER) {
+  let isUpperCanvasCreated = false;
   self.document = {
     //@ts-expect-error createElement is declared globally.
     createElement: (args: string) => {
@@ -33,7 +34,6 @@ if (IS_WEB_WORKER) {
           }
           break;
         case "canvas": {
-          const id = crypto.randomUUID();
           let isUpperCanvas = false;
 
           class A extends OffscreenCanvas {
@@ -41,18 +41,23 @@ if (IS_WEB_WORKER) {
               super(width, height);
             }
           }
-          const canvas = new A(100, 100);
+
+          const canvas = isUpperCanvasCreated ? new A(100, 100) : App.upperCanvas;
+          isUpperCanvasCreated = true;
 
           Object.assign(canvas, {
             style: {
               setProperty: () => {},
             },
+
             getBoundingClientRect: async () => {
               const res = await App.getUpperCanvasBoundingClient();
               return res;
             },
             hasAttribute: () => {},
             setAttribute: ((qualifiedName, value) => {
+              console.log(qualifiedName, value);
+
               if (qualifiedName === "data-fabric" && value == "top") {
                 isUpperCanvas = true;
               }
@@ -60,7 +65,8 @@ if (IS_WEB_WORKER) {
             addEventListener: (...args: Parameters<HTMLCanvasElement["addEventListener"]>) => {
               if (isUpperCanvas) {
                 const [type, func = () => {}, options = {}] = args;
-                App.addUpperCanvasEventListeners[type] = func;
+                console.log({ func });
+                App.fabricUpperCanvasEventListenersCallback[type] = func;
               }
             },
             removeEventListener() {},

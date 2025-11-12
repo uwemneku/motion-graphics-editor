@@ -5,6 +5,7 @@ import type { FrontendCallback } from "../web-workers/types";
 export type ICanvasWorkerContext = {
   initializeCanvasWorker: (
     canvas: HTMLCanvasElement,
+    upperCanvas: HTMLCanvasElement,
     width: number,
     height: number,
     pixelRatio: number,

@@ -4,6 +4,7 @@ import { useCanvasWorkerContext } from "../canvas/useCanvasContext";
 
 function LayersSideMenu() {
   const shapeIds = useAppSelector((state) => state.shapes.ids);
+  console.log("layerrrs");
 
   return (
     <div className="">
@@ -44,7 +45,9 @@ function ShapeDetails(props: { id: string }) {
       }}
       onMouseOut={canvasContext.clearShapeHighlight}
     >
-      <img src={img} className="h-[15px] w-[15px] object-contain" />
+      <figure className="size-[20px] overflow-hidden rounded-md bg-black/25 p-1">
+        <img src={img} className="w-full object-contain" />
+      </figure>
       <p className="text-sm font-light">{shapeDetails?.type}</p>
     </div>
   );

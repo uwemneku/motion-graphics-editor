@@ -17,12 +17,58 @@ export function throttle<G = unknown, T extends Array<G> = G[], Y = unknown>(
     });
   };
 }
+
+//
+export function debounce<G = unknown, T extends Array<G> = G[], Y = unknown>(
+  func: (...a: T) => Y,
+  delay: number,
+) {
+  let timer: NodeJS.Timeout | null = null;
+  return (...args: T): Promise<Y> => {
+    if (timer) clearTimeout(timer);
+    return new Promise((res) => {
+      timer = setTimeout(() => {
+        const response = func(...args);
+        res(response);
+      }, delay);
+    });
+  };
+}
+
+//
 export function getShapeCoordinates(object: FabricObject) {
   const width = object.width * object.scaleX + (object.strokeWidth || 0);
   const height = object.height * object.scaleY + (object.strokeWidth || 0);
-  const originX = object.originX;
-  const originY = object.originY;
   const left = object.left;
   const top = object.top;
   return { width, height, top, left, angle: object.angle };
+}
+
+/**Adds polyfill properties to lower canvas to make it work in a web worker */
+export function modifyLowerCanvas(canvas: OffscreenCanvas, width: number, height: number) {
+  canvas.width = width;
+  canvas.height = height;
+  Object.assign(canvas, {
+    style: {
+      width: `${width}px`,
+      height: `${width}px`,
+      isMain: true,
+      // main-canvas-styles
+      setProperty: () => {},
+    },
+    ownerDocument: {
+      documentElement: {
+        clientLeft: 0,
+        addEventListener: () => {},
+      },
+      defaultView: {
+        getComputedStyle() {},
+      },
+    },
+    hasAttribute: () => {},
+    setAttribute: () => {},
+    classList: {
+      add: () => {},
+    },
+  });
 }
