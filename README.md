@@ -1,5 +1,12 @@
 # Notes
 
+13/11/2024
+
+- Added polyfill in worker to make it possible for fabric.js to control upper-canvas from web worker
+- Tried to do origin aware rotation but was not successful. The api to change a fabric object origin is supposed to be by modifying the `originX` and `originY` property, but they are marked as deprecated. The major challenge here was figuring out the math of the position of a rotated object whose origin has been changed. For now, a simpler solution was setting the origin fo all objects to the center. This made it easier to calculate where to place the blue highlight border when an object is hovered even if said object is rotated.
+- Tried using polyfills to make canvas text editing work from web webworker but that might not be worth it. I found a good use of textArea [here](https://www.framezero.app/edit). I think I should follow this pattern
+- Huge shout to Alessia Cara for the deluxe version of [her new album](https://music.apple.com/ng/album/love-hyperbole-deluxe/1846833534). Great soundtrack for figuring things out and simultaneously thinking, "did she just curse that boy out in track two ?".
+
 10/11/2024
 
 - Improved type definitions for the app to improve communication between worker and main thread
