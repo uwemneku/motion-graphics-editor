@@ -125,7 +125,9 @@ function Screen() {
       onContextMenu={registerMouseEvents("contextmenu")}
       onMouseEnter={registerMouseEvents("mouseenter")}
       onClick={registerMouseEvents("click")}
-      onDoubleClick={registerMouseEvents("dblclick")}
+      onDoubleClick={(...e) => {
+        registerMouseEvents("dblclick")(...e);
+      }}
       onDrag={registerMouseEvents("drag")}
       onDragEnd={registerMouseEvents("dragend")}
       onDragEnter={registerMouseEvents("dragenter")}
@@ -156,6 +158,7 @@ const filterMouseEventAttributes = (
   offset = { x: 0, y: 0 },
 ) => {
   // extract all non-function properties from obj
+
   return {
     altKey: obj.altKey,
     button: obj.button,
@@ -173,6 +176,7 @@ const filterMouseEventAttributes = (
     shiftKey: obj.shiftKey,
     type: obj.type,
     timeStamp: obj.timeStamp,
+    detail: obj.detail,
   };
 };
 

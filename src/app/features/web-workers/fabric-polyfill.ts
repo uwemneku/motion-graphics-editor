@@ -6,7 +6,14 @@ if (IS_WEB_WORKER) {
   self.document = {
     //@ts-expect-error createElement is declared globally.
     createElement: (args: string) => {
+      console.log({ args });
+
       switch (args) {
+        case "textarea": {
+          return {
+            addEventListener: () => {},
+          };
+        }
         case "div":
           {
             return {
@@ -56,8 +63,6 @@ if (IS_WEB_WORKER) {
             },
             hasAttribute: () => {},
             setAttribute: ((qualifiedName, value) => {
-              console.log(qualifiedName, value);
-
               if (qualifiedName === "data-fabric" && value == "top") {
                 isUpperCanvas = true;
               }
@@ -65,8 +70,9 @@ if (IS_WEB_WORKER) {
             addEventListener: (...args: Parameters<HTMLCanvasElement["addEventListener"]>) => {
               if (isUpperCanvas) {
                 const [type, func = () => {}, options = {}] = args;
-                console.log({ func });
-                App.fabricUpperCanvasEventListenersCallback[type] = func;
+                App.fabricUpperCanvasEventListenersCallback[type] = (...g) => {
+                  return func(...g);
+                };
               }
             },
             removeEventListener() {},

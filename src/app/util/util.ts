@@ -45,7 +45,7 @@ export function getShapeCoordinates(object: FabricObject) {
 }
 
 /**Adds polyfill properties to lower canvas to make it work in a web worker */
-export function modifyLowerCanvas(canvas: OffscreenCanvas, width: number, height: number) {
+export function addPropertiesToCanvas(canvas: OffscreenCanvas, width: number, height: number) {
   canvas.width = width;
   canvas.height = height;
   Object.assign(canvas, {
@@ -56,7 +56,10 @@ export function modifyLowerCanvas(canvas: OffscreenCanvas, width: number, height
       // main-canvas-styles
       setProperty: () => {},
     },
+    addEventListener: () => {},
+
     ownerDocument: {
+      ...self.document,
       documentElement: {
         clientLeft: 0,
         addEventListener: () => {},

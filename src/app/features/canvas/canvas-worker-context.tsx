@@ -73,7 +73,7 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
     app.current?.addEventListener(
       "updateCursor",
       proxy((e: string) => {
-        canvas.style.cursor = e;
+        upperCanvas.style.cursor = e;
       }),
     );
     app.current?.addEventListener("highlightShape", proxy(highlightShape));

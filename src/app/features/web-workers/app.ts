@@ -7,6 +7,7 @@ import {
   FabricObject,
   FabricText,
   InteractiveFabricObject,
+  IText,
   Rect,
   type TPointerEvent,
 } from "fabric";
@@ -15,7 +16,7 @@ import { IS_WEB_WORKER } from "./globals";
 import type { CreateShapeArgs, FrontendCallback } from "./types";
 
 // Needed handle missing API in worker
-import { debounce, getShapeCoordinates, modifyLowerCanvas } from "@/app/util/util";
+import { addPropertiesToCanvas, debounce, getShapeCoordinates } from "@/app/util/util";
 import type { AnimatableProps, EditorMode, KeyFrame } from "@/types";
 import "./fabric-polyfill";
 
@@ -65,8 +66,9 @@ export class App {
     {
       // Add missing properties to make offscreen canvas work in web worker
       if (IS_WEB_WORKER) {
+        addPropertiesToCanvas(upperOffscreenCanvas as OffscreenCanvas, width, height);
         App.upperCanvas = upperOffscreenCanvas as OffscreenCanvas;
-        modifyLowerCanvas(lowerOffscreenCanvas as OffscreenCanvas, width, height);
+        addPropertiesToCanvas(lowerOffscreenCanvas as OffscreenCanvas, width, height);
       }
     }
 
@@ -108,8 +110,6 @@ export class App {
       controlsAboveOverlay: true,
     });
 
-    console.log(this.canvas.elements.upper.el);
-
     // this.canvas.elements.upper.ctx = upperOffscreenCanvas.getContext("2d");
     // upperOffscreenCanvas.getBoundingClientRect = App.getUpperCanvasBoundingClient;
 
@@ -150,7 +150,13 @@ export class App {
     // Canvas event listeners
     /* -------------------------------------------------------------------------- */
     this.canvas.on("mouse:dblclick", ({ target, subTargets }) => {
-      console.log(target, subTargets);
+      if (target?.type === "text") {
+        const _target = target as FabricText;
+        const text = _target.text;
+        const textAlign = _target.textAlign;
+        const fontSize = _target.CACHE_FONT_SIZE;
+        console.log({ text, textAlign, fontSize, target });
+      }
     });
     this.canvas.on("object:scaling", ({ target }) => {
       this.selectedShapes?.forEach((id) => {
@@ -336,8 +342,6 @@ export class App {
   }
 
   async createShape(args: CreateShapeArgs) {
-    console.log(`creating ${args.type}`);
-
     let shape: FabricObject | null = null;
     const id = crypto.randomUUID();
     const defaultFill = "lightgray";
@@ -346,7 +350,7 @@ export class App {
     switch (args.type) {
       case "text":
         {
-          const text = new FabricText(args.text, {
+          const text = new IText(args.text, {
             fontFamily: "lato",
             textAlign: "center",
           });
@@ -452,6 +456,9 @@ export class App {
     if (shape) {
       return getShapeCoordinates(shape);
     }
+  }
+  getShapeByCoordinates() {
+    this.canvas.findTarget({});
   }
 
   async getShapeImage(id: string) {

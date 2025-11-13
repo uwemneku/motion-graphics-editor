@@ -76,4 +76,5 @@ export type FilteredMouseEvent = Pick<
   | "shiftKey"
   | "type"
   | "timeStamp"
+  | "detail"
 >;
