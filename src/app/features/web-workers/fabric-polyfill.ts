@@ -11,7 +11,43 @@ if (IS_WEB_WORKER) {
       switch (args) {
         case "textarea": {
           return {
-            addEventListener: () => {},
+            addEventListener: (...args: Parameters<HTMLCanvasElement["addEventListener"]>) => {
+              const [type, func = () => {}, options = {}] = args;
+              App.fabricTextareaWorkerCallback[type] = (...g) => {
+                return func(...g);
+              };
+            },
+            setAttribute() {},
+            focus() {
+              App.fabricTextareaFrontEndCallback?.focus?.(undefined);
+            },
+            style: {
+              set cssText(style: string) {
+                console.log(style);
+
+                App.fabricTextareaFrontEndCallback?.updateStyle?.(style);
+              },
+            },
+            get value() {
+              return App.fabricTextareaFrontEndCallback?.getValue?.(undefined) as unknown as string;
+            },
+            set value(s: string) {
+              App.fabricTextareaFrontEndCallback?.setValue?.(s);
+            },
+            get selectionStart() {
+              return App.fabricTextareaFrontEndCallback?.getSelectionStart?.(
+                undefined,
+              ) as unknown as number;
+            },
+            set selectionStart(value: number) {
+              App.fabricTextareaFrontEndCallback?.setSelectionStart?.(value);
+            },
+            get selectionEnd() {
+              return App.fabricTextareaFrontEndCallback?.getSelectionEnd?.(undefined);
+            },
+            set selectionEnd(value) {
+              App.fabricTextareaFrontEndCallback?.setSelectionEnd?.(value);
+            },
           };
         }
         case "div":
@@ -133,6 +169,9 @@ if (IS_WEB_WORKER) {
         }
         default:
       }
+    },
+    body: {
+      appendChild() {},
     },
   };
 

@@ -20,6 +20,16 @@ import { addPropertiesToCanvas, debounce, getShapeCoordinates } from "@/app/util
 import type { AnimatableProps, EditorMode, KeyFrame } from "@/types";
 import "./fabric-polyfill";
 
+type FrontEndTextAreaCallback =
+  | "focus"
+  | "updateStyle"
+  | "getValue"
+  | "setValue"
+  | "getSelectionStart"
+  | "setSelectionStart"
+  | "getSelectionEnd"
+  | "setSelectionEnd";
+
 export class App {
   /**Main fabric canvas instance */
   private canvas: Canvas;
@@ -41,6 +51,11 @@ export class App {
   /**Stores  callback functions for event listeners fired on the main canvas*/
   static fabricUpperCanvasEventListenersCallback: Record<string, (data: TPointerEvent) => void> =
     {};
+  // TODO: correctly type unknown
+  static fabricTextareaWorkerCallback: Partial<Record<string, (data: unknown) => void>> = {};
+  static fabricTextareaFrontEndCallback: Partial<
+    Record<FrontEndTextAreaCallback, (data: unknown) => void>
+  > = {};
   static upperCanvas: OffscreenCanvas;
   static getUpperCanvasBoundingClient = () => {};
   /* -------------------------------------------------------------------------- */
@@ -283,6 +298,14 @@ export class App {
     }
     App.fabricUpperCanvasEventListenersCallback[type]?.(data);
     this.canvas.renderAll();
+  }
+
+  handleTextAreaCallback(type: string, data: unknown) {
+    App.fabricTextareaWorkerCallback[type]?.(data);
+  }
+
+  registerTextAreaCallback(type: FrontEndTextAreaCallback, func: <T = unknown>(...d: T[]) => void) {
+    App.fabricTextareaFrontEndCallback[type] = func;
   }
 
   private render() {

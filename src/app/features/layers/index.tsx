@@ -4,7 +4,6 @@ import { useCanvasWorkerContext } from "../canvas/useCanvasContext";
 
 function LayersSideMenu() {
   const shapeIds = useAppSelector((state) => state.shapes.ids);
-  console.log("layerrrs");
 
   return (
     <div className="">

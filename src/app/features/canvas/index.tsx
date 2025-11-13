@@ -1,4 +1,5 @@
 import { useAppDispatch } from "@/app/store";
+import { proxy } from "comlink";
 import { useCallback, useEffect, useRef, type MouseEventHandler } from "react";
 import { deleteShape } from "../shapes/slice";
 import type { FilteredMouseEvent } from "../web-workers/types";
@@ -135,6 +136,7 @@ function Screen() {
       onDragOver={registerMouseEvents("dragover")}
       onDrop={registerMouseEvents("drop")}
     >
+      <FabricTextArea />
       <FloatingHUDLabel />
       <div
         data-id="highlight rect"
@@ -149,6 +151,123 @@ function Screen() {
         style={{ touchAction: "none" }}
       ></canvas>
     </div>
+  );
+}
+
+function FabricTextArea() {
+  const canvasContext = useCanvasWorkerContext();
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+
+  if (!canvasContext.hasInitializedWorker) {
+    return null;
+  }
+
+  if (canvasContext.hasInitializedWorker) {
+    canvasContext.app?.registerTextAreaCallback(
+      "focus",
+      proxy(() => {
+        textAreaRef.current?.focus();
+      }),
+    );
+    canvasContext.app?.registerTextAreaCallback(
+      "getValue",
+      proxy(() => {
+        return textAreaRef.current?.value;
+      }),
+    );
+    canvasContext.app?.registerTextAreaCallback(
+      "setValue",
+      proxy((value) => {
+        if (textAreaRef.current) {
+          textAreaRef.current.value = value;
+        }
+      }),
+    );
+    canvasContext.app?.registerTextAreaCallback(
+      "getSelectionEnd",
+      proxy(() => {
+        return textAreaRef.current?.selectionEnd;
+      }),
+    );
+    canvasContext.app?.registerTextAreaCallback(
+      "setSelectionEnd",
+      proxy((value) => {
+        if (textAreaRef.current) {
+          textAreaRef.current.selectionEnd = value;
+        }
+      }),
+    );
+    canvasContext.app?.registerTextAreaCallback(
+      "getSelectionStart",
+      proxy(() => {
+        return textAreaRef.current?.selectionStart;
+      }),
+    );
+    canvasContext.app?.registerTextAreaCallback(
+      "setSelectionStart",
+      proxy((value) => {
+        if (textAreaRef.current) {
+          textAreaRef.current.selectionStart = value;
+        }
+      }),
+    );
+    canvasContext.app?.registerTextAreaCallback(
+      "updateStyle",
+      proxy((styles: string) => {
+        if (textAreaRef.current) {
+          textAreaRef.current.style.cssText = styles;
+        }
+      }),
+    );
+  }
+  const registerTextAreaCallBack =
+    (
+      event:
+        | "blur"
+        | "keydown"
+        | "keyup"
+        | "input"
+        | "copy"
+        | "cut"
+        | "paste"
+        | "compositionstart"
+        | "compositionupdate"
+        | "compositionend",
+    ) =>
+    (g: KeyboardEvent) => {
+      const d = [
+        "altKey",
+        "shiftKey",
+        "metaKey",
+        "keyCode",
+        "ctrlKey",
+        // "stopImmediatePropagation",
+        "preventDefault",
+      ].reduce((acc, curr) => {
+        const value = g?.[curr];
+        return { ...acc, [curr]: typeof value === "function" ? proxy(() => {}) : value };
+      }, {});
+      console.log({ event });
+
+      canvasContext.app?.handleTextAreaCallback(event, d);
+    };
+
+  return (
+    <textarea
+      name="text"
+      ref={textAreaRef}
+      onBlur={registerTextAreaCallBack("blur")}
+      onKeyDown={registerTextAreaCallBack("keydown")}
+      onKeyUp={registerTextAreaCallBack("keyup")}
+      onInput={registerTextAreaCallBack("input")}
+      onCopy={registerTextAreaCallBack("copy")}
+      onCut={registerTextAreaCallBack("copy")}
+      onPaste={registerTextAreaCallBack("paste")}
+      onCompositionStart={registerTextAreaCallBack("compositionstart")}
+      onCompositionUpdate={registerTextAreaCallBack("compositionupdate")}
+      onCompositionEnd={registerTextAreaCallBack("compositionend")}
+      className="!fixed"
+    ></textarea>
   );
 }
 
