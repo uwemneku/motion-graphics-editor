@@ -17,7 +17,6 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
 
   const highlightShape: FrontendCallback["highlightShape"] = (width, height, top, left, angle) => {
     const PADDING = 10;
-    console.log({ left, angle });
 
     if (containerRef?.current)
       gsap.to(containerRef.current, {
@@ -62,6 +61,7 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
     const _callback = proxy(() => options?.containerRef?.getBoundingClientRect());
 
     //@ts-expect-error error occurs because of have to make app work in either worker env or main thread
+    // await ClassInstance.loadFont();
     app.current = await new ClassInstance(
       getOffscreenCanvas(canvas),
       getOffscreenCanvas(upperCanvas),
@@ -78,6 +78,14 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
     );
     app.current?.addEventListener("highlightShape", proxy(highlightShape));
     app.current?.addEventListener("clearShapeHighlight", proxy(clearShapeHighlight));
+    app.current?.addEventListener(
+      "registerFont",
+      proxy((name: string, url: string) => {
+        const font = new FontFace("lato", `url(${url})`);
+        document.fonts.add(font);
+        font.load();
+      }),
+    );
     app.current?.addEventListener(
       "timeline:update",
       proxy((time: number) => {

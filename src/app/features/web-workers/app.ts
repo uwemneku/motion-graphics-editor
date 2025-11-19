@@ -7,8 +7,8 @@ import {
   FabricObject,
   FabricText,
   InteractiveFabricObject,
-  IText,
   Rect,
+  Textbox,
   type TPointerEvent,
 } from "fabric";
 import gsap from "gsap";
@@ -62,7 +62,6 @@ export class App {
     devicePixelRatio = 2,
   ) {
     // TODO: remove this as it was only added to test loading fonts
-    App.loadFont();
     {
       // Add missing properties to make offscreen canvas work in web worker
       if (IS_WEB_WORKER) {
@@ -110,9 +109,6 @@ export class App {
       controlsAboveOverlay: true,
     });
 
-    // this.canvas.elements.upper.ctx = upperOffscreenCanvas.getContext("2d");
-    // upperOffscreenCanvas.getBoundingClientRect = App.getUpperCanvasBoundingClient;
-
     this.clipRect = new Rect({
       width: 400,
       height: 400,
@@ -141,6 +137,7 @@ export class App {
 
     this.fitCanvas(width, height);
     this.startRenderLoop();
+    this.createShape({ type: "text", text: "Hello hello hello hello" });
 
     /* -------------------------------------------------------------------------- */
     const onMoveEnd = debounce(this.onMoveEnd.bind(this), 100).bind(this);
@@ -158,10 +155,27 @@ export class App {
         console.log({ text, textAlign, fontSize, target });
       }
     });
-    this.canvas.on("object:scaling", ({ target }) => {
+    this.canvas.on("object:scaling", (e) => {
+      console.log(e);
+
       this.selectedShapes?.forEach((id) => {
         const shape = this.shapeRecord.get(id);
         if (!shape) return;
+        const isTextBox = shape.type === "textbox";
+        /* -------------------------------------------------------------------------- */
+        // in web worker this is needed to recalculate text wrapping
+        if (IS_WEB_WORKER && isTextBox) {
+          const _shape = shape as Textbox;
+          _shape.width = _shape.scaleX * _shape.width;
+          _shape.height = _shape.scaleY * _shape.height;
+          _shape.scaleX = 1;
+          _shape.scaleY = 1;
+          _shape.initialized = true;
+          _shape.initDimensions();
+          _shape.dirty = true;
+        }
+        /* -------------------------------------------------------------------------- */
+
         const newWidth = shape.scaleX * shape.width;
         const newHeight = shape.scaleY * shape.height;
         this.frontEndCallBack?.["object:scaling"]?.(id, newWidth, newHeight);
@@ -270,6 +284,9 @@ export class App {
       case "timeline:update":
         this.frontEndCallBack[args[0]] = args[1];
         break;
+      case "registerFont":
+        this.frontEndCallBack[args[0]] = args[1];
+        break;
       default: {
         const key = args[0];
         this.frontEndCallBack[key] = args[1];
@@ -350,10 +367,20 @@ export class App {
     switch (args.type) {
       case "text":
         {
-          const text = new IText(args.text, {
-            fontFamily: "lato",
+          const text = new Textbox(args.text, {
             textAlign: "center",
+            fontSize: 20,
+            fontStyle: "normal",
           });
+          text.editable = false;
+          text.setControlsVisibility({ mt: false, mb: false });
+          text.on("mousedown", () => {
+            text.fontFamily = "lato";
+            text.set("dirty", true);
+          });
+
+          App.loadFont();
+
           shape = text;
         }
         break;
@@ -407,7 +434,7 @@ export class App {
       this.shapeRecord.set(id, shape);
       this.canvas.centerObject(shape);
       this.canvas.add(shape);
-      this.timeLine.parentTimeLine.set(shape, { left: shape.left, top: shape.top }, 0);
+      this.timeLine.parentTimeLine.to(shape, { top: shape.top, left: shape.left, duration: 0 }, 0);
       return id;
     }
   }
@@ -482,17 +509,32 @@ export class App {
 
   private onMoveEnd(...[id, left, top]: Parameters<FrontendCallback["object:moving"]>) {
     const shape = this.shapeRecord.get(id);
-
     if (!shape) return;
-    this.timeLine.parentTimeLine.to(
-      shape,
-      {
-        left,
-        top,
-        duration: 10,
-      },
-      1,
-    );
+    const keyframes = shape?.keyFrames;
+    const timeStamp = this.timeLine.parentTimeLine.time();
+    const tl = this.timeLine.parentTimeLine;
+
+    if (!keyframes) {
+      console.log({ keyframes, timeStamp, left, top });
+      this.timeLine.parentTimeLine.to(
+        shape,
+        {
+          left,
+          top,
+          duration: 4,
+          onUpdate() {
+            const timeStamp = tl.time();
+            console.log({ timeStamp });
+          },
+          onComplete() {
+            const timeStamp = tl.time();
+            console.log("complete", { timeStamp });
+          },
+        },
+        1,
+      );
+      return;
+    }
   }
   onMouseUp() {}
   play() {
@@ -511,13 +553,21 @@ export class App {
   }
 
   static async loadFont() {
-    const fontUrl = new URL("./f.woff2", import.meta.url);
-    const buffer = await (await fetch(fontUrl)).arrayBuffer();
-    const font = new FontFace("lato", `url(${fontUrl.href})`);
-    //@ts-expect-error TODO: figure out how to add self.fonts to type declaration
-    self.fonts.add(font);
-    await font.load();
-    console.log("loaded");
+    try {
+      const fontUrl = new URL("./f.woff2", import.meta.url);
+      // const buffer = await (await fetch(fontUrl)).arrayBuffer();
+      console.log(fontUrl.href);
+
+      const font = new FontFace("lato", `url(${fontUrl.href})`);
+      //@ts-expect-error TODO: figure out how to add self.fonts to type declaration
+      self.fonts.add(font);
+
+      await font.load();
+
+      // this.frontEndCallBack.registerFont?.("lato", fontUrl.href);
+    } catch (error) {
+      console.log({ error });
+    }
   }
 }
 

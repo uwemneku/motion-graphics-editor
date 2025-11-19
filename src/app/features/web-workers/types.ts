@@ -52,6 +52,7 @@ export type FrontendCallback = {
   onSelectShape: (id: string[]) => void;
   highlightShape: (width: number, height: number, top: number, left: number, angle: number) => void;
   clearShapeHighlight: () => void;
+  registerFont: (name: string, url: string) => void;
   "timeline:update": (time: number) => void;
   "object:scaling": (id: string, width: number, height: number) => void;
   "object:rotating": (id: string, angle: number) => void;

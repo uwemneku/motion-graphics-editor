@@ -6,6 +6,7 @@ declare module "fabric" {
     name?: string;
     src?: string;
     previewImage?: string;
+    keyFrames?: Record<string, { timestamp: number; value: unknown }[]>;
   }
 
   interface SerializedObjectProps {
@@ -14,4 +15,4 @@ declare module "fabric" {
   }
 }
 
-FabricObject.customProperties = ["name", "id"];
+FabricObject.customProperties = ["name", "id", "keyFrames"];

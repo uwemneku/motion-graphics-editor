@@ -34,7 +34,7 @@ function ShapePicker(props: Props) {
           if (id) dispatch(addShape({ id, type: "circle" }));
           break;
         case "text":
-          id = await app?.createShape({ type: "text", text: "HEllo\nHellofoool\nhello 😂" });
+          id = await app?.createShape({ type: "text", text: "HEllo Hellofoool hello 😂" });
           if (id) dispatch(addShape({ id, type: "text" }));
           break;
 

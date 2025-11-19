@@ -6,14 +6,12 @@ if (IS_WEB_WORKER) {
   self.document = {
     //@ts-expect-error createElement is declared globally.
     createElement: (args: string) => {
-      console.log({ args });
-
       switch (args) {
-        case "textarea": {
-          return {
-            addEventListener: () => {},
-          };
-        }
+        // case "textarea": {
+        //   return {
+        //     addEventListener: () => {},
+        //   };
+        // }
         case "div":
           {
             return {

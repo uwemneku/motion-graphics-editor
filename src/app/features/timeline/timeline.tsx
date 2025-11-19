@@ -123,7 +123,7 @@ function TimelineTimeStampHeader() {
         >
           <span className="pointer-events-none select-none">{timelineCurrentTime.toFixed(2)}s</span>
         </div>
-        <div className="h-[400px] w-[2px] bg-blue-400" />
+        <div className="h-[400px] w-0.5 bg-blue-400" />
       </div>
       {/* ========= */}
       <div className="relative z-10 flex h-full items-end">
