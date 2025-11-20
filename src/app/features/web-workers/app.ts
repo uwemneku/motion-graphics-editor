@@ -71,12 +71,6 @@ export class App {
       }
     }
 
-    /* -------------------------------------------------------------------------- */
-    this.timeLine.parentTimeLine.eventCallback("onUpdate", () => {
-      this.frontEndCallBack?.["timeline:update"]?.(this.timeLine.parentTimeLine.time());
-    });
-    /* -------------------------------------------------------------------------- */
-
     // Default fabric object configurations
     config.configure({ devicePixelRatio });
     const controls = controlsUtils.createObjectDefaultControls();
@@ -136,11 +130,17 @@ export class App {
     this.canvas.add(this.clipRect);
 
     this.fitCanvas(width, height);
-    this.startRenderLoop();
-    this.createShape({ type: "text", text: "Hello hello hello hello" });
 
     /* -------------------------------------------------------------------------- */
-    const onMoveEnd = debounce(this.onMoveEnd.bind(this), 100).bind(this);
+    const addKeyFrame = debounce(this.addKeyFrame.bind(this), 100).bind(this);
+    /* -------------------------------------------------------------------------- */
+
+    /* -------------------------------------------------------------------------- */
+    this.timeLine.parentTimeLine.eventCallback("onUpdate", () => {
+      const time = this.timeLine.parentTimeLine.time();
+
+      this.frontEndCallBack?.["timeline:update"]?.(time);
+    });
     /* -------------------------------------------------------------------------- */
 
     /* -------------------------------------------------------------------------- */
@@ -186,6 +186,7 @@ export class App {
         const shape = this.shapeRecord.get(id);
         if (!shape) return;
         this.frontEndCallBack?.["object:rotating"]?.(id, target.angle);
+        addKeyFrame(id, { angle: shape.angle });
       });
     });
     this.canvas.on("object:moving", ({ target }) => {
@@ -193,7 +194,7 @@ export class App {
         const shape = this.shapeRecord.get(id);
         if (!shape) return;
         this.frontEndCallBack?.["object:moving"]?.(id, shape.left, shape.top);
-        onMoveEnd(id, target.left, target.top);
+        addKeyFrame(id, { left: target.left, top: target.top });
       });
     });
     this.canvas.on("selection:created", () => {
@@ -226,6 +227,8 @@ export class App {
     this.canvas.on("mouse:out", () => {
       this.frontEndCallBack?.clearShapeHighlight?.();
     });
+
+    this.startRenderLoop();
   }
 
   set selectedShapes(ids: string[]) {
@@ -324,7 +327,6 @@ export class App {
       if (!ctx) return;
       ctx.drawImage(bitmapImage, 0, 0);
 
-      console.log("Loading image into fabric");
       const fabricImage = new FabricImage(offscreen as unknown as HTMLCanvasElement, {
         height: bitmapImage.height,
         width: bitmapImage.width,
@@ -434,7 +436,7 @@ export class App {
       this.shapeRecord.set(id, shape);
       this.canvas.centerObject(shape);
       this.canvas.add(shape);
-      this.timeLine.parentTimeLine.to(shape, { top: shape.top, left: shape.left, duration: 0 }, 0);
+      this.freeKeyFrames(shape, id);
       return id;
     }
   }
@@ -490,6 +492,7 @@ export class App {
 
   async getShapeImage(id: string) {
     const shape = this.shapeRecord.get(id);
+
     if (shape) {
       if (shape instanceof FabricImage) {
         const canvas = shape._element as unknown as OffscreenCanvas;
@@ -506,35 +509,107 @@ export class App {
       return await URL.createObjectURL(b);
     }
   }
-
-  private onMoveEnd(...[id, left, top]: Parameters<FrontendCallback["object:moving"]>) {
+  /* -------------------------------------------------------------------------- */
+  // Animation functions
+  /* -------------------------------------------------------------------------- */
+  private addKeyFrame(
+    id: string,
+    properties: Partial<{ left: number; top: number; angle: number }>,
+  ) {
     const shape = this.shapeRecord.get(id);
     if (!shape) return;
-    const keyframes = shape?.keyFrames;
+    const debouncedUpdate = debounce(() => {
+      shape.setCoords();
+    }, 100);
+    const shapeKeyframes = shape?.keyFrames;
     const timeStamp = this.timeLine.parentTimeLine.time();
-    const tl = this.timeLine.parentTimeLine;
 
-    if (!keyframes) {
-      console.log({ keyframes, timeStamp, left, top });
+    if (timeStamp === 0) {
+      const tween = this.timeLine.parentTimeLine.getById(id);
+      if (tween) this.timeLine.parentTimeLine.remove(tween);
+      this.freeKeyFrames(shape, id);
+      return;
+    }
+
+    for (const key in properties) {
+      if (!Object.hasOwn(properties, key)) continue;
+
+      //
+      const propertyAnimationKey = `${id}-${key}-${timeStamp}`;
+      const propertyKeyFrames = shapeKeyframes?.[key];
+      const _key = key as keyof typeof properties;
+      const value = properties[_key];
+
+      let startTimeStamp = 0;
+      let animationDuration = timeStamp;
+      //
+      const tween = this.timeLine.parentTimeLine.getById(propertyAnimationKey);
+      if (tween) this.timeLine.parentTimeLine.remove(tween);
+      //
+
+      keyframes: {
+        // Add keyframe for property if missing
+        if (!propertyKeyFrames) {
+          console.log("first animation");
+
+          shape.keyFrames = {
+            ...shape.keyFrames,
+            [key]: [timeStamp],
+          };
+          break keyframes;
+        }
+
+        const firstTimeStamp = propertyKeyFrames[propertyKeyFrames.length - 1];
+        const lastTimeStamp = propertyKeyFrames[propertyKeyFrames.length - 1];
+        const isAfterLastTimestamp = timeStamp > lastTimeStamp;
+        if (isAfterLastTimestamp) {
+          console.log("after animation");
+
+          startTimeStamp = lastTimeStamp;
+          animationDuration = timeStamp - lastTimeStamp;
+          propertyKeyFrames.push(timeStamp);
+          break keyframes;
+        }
+      }
+
       this.timeLine.parentTimeLine.to(
         shape,
         {
-          left,
-          top,
-          duration: 4,
+          [key]: value,
+          duration: animationDuration,
+          id: propertyAnimationKey,
+          ease: "none",
           onUpdate() {
-            const timeStamp = tl.time();
-            console.log({ timeStamp });
-          },
-          onComplete() {
-            const timeStamp = tl.time();
-            console.log("complete", { timeStamp });
+            debouncedUpdate();
           },
         },
-        1,
+        startTimeStamp,
       );
-      return;
     }
+    this.timeLine.parentTimeLine.invalidate();
+    console.log(this.timeLine.parentTimeLine.getChildren().map((i) => i.vars));
+    console.log({ shapeKeyframes: shape.keyFrames });
+
+    return;
+  }
+  private freeKeyFrames(shape: FabricObject, id: string) {
+    const tween = this.timeLine.parentTimeLine.getById(id);
+    if (tween) this.timeLine.parentTimeLine.remove(tween);
+
+    this.timeLine.parentTimeLine.set(
+      shape,
+      {
+        top: shape.top,
+        left: shape.left,
+        opacity: shape.opacity,
+        backgroundColor: shape.backgroundColor,
+        duration: 0,
+        angle: shape.angle,
+        id: `${id}`,
+      },
+      0,
+    );
+    // this.timeLine.parentTimeLine.invalidate();
   }
   onMouseUp() {}
   play() {
@@ -575,7 +650,16 @@ class AppTimeline {
   parentTimeLine = gsap.timeline({ paused: true });
 
   constructor(duration: number) {
-    this.parentTimeLine.to({}, { duration });
+    this.parentTimeLine.to(
+      {},
+      {
+        x: 10,
+        duration,
+        onComplete: (() => {
+          this.parentTimeLine.restart();
+        }).bind(this),
+      },
+    );
   }
   addAnimation(object: FabricObject, keyframe: KeyFrame, startTime: number, duration: number) {
     for (const key in keyframe.animatable) {
@@ -587,3 +671,5 @@ class AppTimeline {
     }
   }
 }
+
+const insertKeyFrame = (currentKeyFrames: number[], timestamp: number) => {};

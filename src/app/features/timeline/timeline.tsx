@@ -15,11 +15,11 @@ function FloatingTimeline() {
     <div className="flex min-h-full flex-1 bg-white" style={{ "--size": "30px" } as CSSProperties}>
       {/* Layers */}
       <div className="min-h-full max-w-[200px] flex-1 border-r border-gray-300">
-        <div className="h-[var(--size)] border-b border-gray-300"></div>
+        <div className="h-(--size) border-b border-gray-300"></div>
         <LayersSideMenu />
       </div>
       <div className="flex-1">
-        <div className="h-[var(--size)] border-b border-gray-300">
+        <div className="h-(--size) border-b border-gray-300">
           <TimelineTimeStampHeader />
         </div>
       </div>
@@ -63,11 +63,11 @@ function TimelineTimeStampHeader() {
 
   const handleClick: MouseEventHandler = (e) => {
     const { left = 0 } = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-    const p = e.clientX - left;
-    const progress = (p / initDetails.current.maxOffset) * duration;
+    const offset = e.clientX - left;
+    const progress = (offset / initDetails.current.maxOffset) * duration;
     trackDiv.current?.style.setProperty("transition", "left 0.5s");
     canvasContext.app?.seek(progress, false);
-    initDetails.current.left = p;
+    initDetails.current.left = offset;
   };
 
   const getPlayHeadLeftOffset = (clientX = 0) => {

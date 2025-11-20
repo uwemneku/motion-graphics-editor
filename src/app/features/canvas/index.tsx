@@ -30,17 +30,6 @@ function Screen() {
     node.width = width * (window.devicePixelRatio || 1);
     node.height = height * (window.devicePixelRatio || 1);
 
-    // const fcanvas = new Canvas(node as unknown as HTMLCanvasElement, {
-    //   enableRetinaScaling: true,
-    //   width,
-    //   height,
-    //   controlsAboveOverlay: true,
-    //   backgroundColor: "red",
-    // });
-    // const t = new Textbox("hello hello ");
-    // fcanvas.centerObject(t);
-    // fcanvas.add(t);
-    // fcanvas.renderAll();
     await canvasContext.initializeCanvasWorker(
       node,
       upperCanvas,
@@ -152,14 +141,12 @@ function Screen() {
         className="pointer-events-none absolute top-[var(--highlight-rect-top)] left-[var(--highlight-rect-left)] z-20 h-[var(--highlight-rect-height)] w-[var(--highlight-rect-width)] rotate-[var(--highlight-rect-angle)] border-2 border-blue-400"
         ref={highlightDiv}
       />
-      <div className="absolute z-20 font-[lato]" draggable value={"Hello"}>
-        Hello
-      </div>
+
       <canvas className="absolute z-10 h-full w-full" />
       <canvas
         ref={upperCanvasNode}
         data-upper-canvas
-        className="absolute z-[15] h-full w-full"
+        className="absolute z-15 h-full w-full"
         style={{ touchAction: "none" }}
       ></canvas>
     </div>

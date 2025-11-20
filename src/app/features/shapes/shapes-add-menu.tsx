@@ -1,5 +1,5 @@
 import { useAppDispatch } from "@/app/store";
-import { Icon } from "@iconify/react";
+import { Brush, Circle, Image, Play, Shapes, Square, TypeIcon, Video } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRef, useState, type ReactNode } from "react";
 import type { EditorMode, NodeType } from "../../../types";
@@ -116,10 +116,10 @@ function ShapePicker(props: Props) {
                   onChange={handleImageChange}
                   ref={inputRef}
                 />
-                <Icon className="z-0" icon={"material-symbols:image-outline"} />
+                <Image className="z-0" strokeWidth={1} />
               </button>
               <div className="group relative">
-                <Icon className="z-0" icon={"streamline-ultimate:shapes"} />
+                <Shapes strokeWidth={1} className="z-0 fill-gray-500 stroke-gray-500" />
                 <div className="absolute -top-[300%] bottom-0 -left-full hidden -translate-x-[25%] pl-5 group-hover:block">
                   <div className="flex gap-3 rounded-md border-2 border-gray-300 bg-white px-3 py-1">
                     {nodeData.map((e) => (
@@ -134,11 +134,7 @@ function ShapePicker(props: Props) {
                   </div>
                 </div>
               </div>
-              <Icon
-                onClick={handleAddShape("text")}
-                className="z-0"
-                icon={"fluent:text-t-16-filled"}
-              />
+              <TypeIcon strokeWidth={1} onClick={handleAddShape("text")} className="z-0" />
             </motion.div>
           ) : (
             <motion.div
@@ -149,7 +145,7 @@ function ShapePicker(props: Props) {
               exit={{ backdropFilter: "blur(10px)", opacity: 0, scale: 0.9 }}
             >
               <button>
-                <Icon icon={"famicons:play"} className="text-blue-400" />
+                <Play className="fill-blue-400 text-blue-400" strokeWidth={1.5} />
               </button>
               <div>
                 <TimeStamp />
@@ -179,7 +175,7 @@ const SwitchMode = (props: Pick<Props, "onModeSwitch"> & { mode: EditorMode }) =
   };
 
   return (
-    <div className="relative flex min-h-[40px] items-center overflow-hidden text-black">
+    <div className="relative flex min-h-10 items-center overflow-hidden text-black">
       <motion.div
         className="absolute top-0 left-0 h-full w-1/2 p-1"
         animate={{ translateX }}
@@ -196,15 +192,15 @@ const SwitchMode = (props: Pick<Props, "onModeSwitch"> & { mode: EditorMode }) =
       </motion.div>
 
       <motion.button className="relative z-10 h-full px-3" onClick={toggleMode("design")}>
-        <Icon
-          icon="fluent:design-ideas-48-regular"
+        <Brush
+          strokeWidth={1}
           className="transition-colors"
           color={isDesignMode ? "white" : "black"}
         />
       </motion.button>
       <motion.button className="relative z-10 h-full px-3" onClick={toggleMode("animate")}>
-        <Icon
-          icon="tabler:video"
+        <Video
+          strokeWidth={1}
           color={!isDesignMode ? "white" : "black"}
           className="transition-colors"
         />
@@ -215,8 +211,8 @@ const SwitchMode = (props: Pick<Props, "onModeSwitch"> & { mode: EditorMode }) =
 
 const nodeData: { type: NodeType; el: ReactNode }[] = [
   // { type: "text", el: <PiTextAaBold className="z-0" size={24} /> },
-  { type: "circle", el: <Icon className="z-0" icon={"tdesign:circle"} /> },
-  { type: "square", el: <Icon className="z-0" icon={"material-symbols-light:square-outline"} /> },
+  { type: "circle", el: <Circle className="z-0 fill-black" /> },
+  { type: "square", el: <Square className="z-0 fill-black" /> },
 ];
 
 export default ShapePicker;

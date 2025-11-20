@@ -6,7 +6,7 @@ declare module "fabric" {
     name?: string;
     src?: string;
     previewImage?: string;
-    keyFrames?: Record<string, { timestamp: number; value: unknown }[]>;
+    keyFrames?: Partial<Record<string, number[]>>;
   }
 
   interface SerializedObjectProps {
