@@ -52,7 +52,7 @@ export default function AppLayout() {
 
   return (
     <div
-      className="flex h-[100dvh] max-h-dvh w-[100dvw] flex-col overflow-y-hidden"
+      className="flex h-dvh max-h-dvh w-dvw flex-col overflow-y-hidden"
       style={{ "--offset": `${OFFSET}px`, "--timeline-offset": "-150%" } as CSSProperties}
       ref={(node) => {
         if (!hasAnimatedToInitialPosition.current) {
@@ -86,12 +86,12 @@ export default function AppLayout() {
       <div className="z-20">
         <div
           ref={shapesRef}
-          className="absolute bottom-0 left-1/2 z-20 flex -translate-y-[var(--offset)] items-center rounded-xl border-2 border-gray-300 bg-white"
+          className="absolute bottom-0 left-1/2 z-20 flex -translate-y-(--offset) items-center rounded-xl border-2 border-gray-300 bg-white"
         >
           <ShapePicker initiMode={initMode} onModeSwitch={onEditorModeSwithc} />
         </div>
         <div
-          className={`p-x-2 drop absolute bottom-0 left-0 z-10 flex max-h-[200px] min-h-[150px] w-full -translate-y-[var(--timeline-offset)] flex-col overflow-hidden border-t border-t-gray-300`}
+          className={`p-x-2 drop absolute bottom-0 left-0 z-10 flex max-h-[200px] min-h-[150px] w-full -translate-y-(--timeline-offset) flex-col overflow-hidden border-t border-t-gray-300`}
           ref={timelineRef}
         >
           <FloatingTimeline />

@@ -656,7 +656,7 @@ class AppTimeline {
         x: 10,
         duration,
         onComplete: (() => {
-          this.parentTimeLine.restart();
+          // this.parentTimeLine.restart();
         }).bind(this),
       },
     );
