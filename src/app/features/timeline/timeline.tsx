@@ -61,9 +61,9 @@ function TimelineTimeStampHeader() {
       if (deltaX < 0 && time <= 0) return;
       const playHeadPosition = time + (deltaX / initDetails.current.timelineWidth) * TOTAL_TIMELINE;
 
-      canvasContext.app?.seek(playHeadPosition, false);
+      canvasContext.seekTimeLine(playHeadPosition);
     },
-    [canvasContext.app],
+    [canvasContext],
   );
 
   const handleClick = (e: Pick<MouseEvent, "clientX">) => {
@@ -75,7 +75,7 @@ function TimelineTimeStampHeader() {
       TOTAL_TIMELINE,
     );
     trackDiv.current?.style.setProperty("transition", "left 0.5s");
-    canvasContext.app?.seek(playHeadPosition, false);
+    canvasContext.seekTimeLine(playHeadPosition);
   };
 
   const saveTimelineWidth = (node: HTMLElement | null) => {

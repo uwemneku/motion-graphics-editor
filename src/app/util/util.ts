@@ -4,15 +4,15 @@ export function throttle<G = unknown, T extends Array<G> = G[], Y = unknown>(
   mainFunction: (...a: T) => Y,
   delay: number,
 ) {
-  let timer: NodeJS.Timeout | null = null;
+  let last = 0;
+  console.log("creating throttle function");
   return (...args: T): Promise<Y> => {
     return new Promise((res) => {
-      if (timer === null) {
+      const now = Date.now();
+      if (last === 0 || now - last >= delay) {
+        last = now;
         const response = mainFunction(...args);
         res(response);
-        timer = setTimeout(() => {
-          timer = null;
-        }, delay);
       }
     });
   };

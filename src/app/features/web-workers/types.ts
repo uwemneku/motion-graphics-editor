@@ -53,7 +53,7 @@ export type FrontendCallback = {
   highlightShape: (width: number, height: number, top: number, left: number, angle: number) => void;
   clearShapeHighlight: () => void;
   registerFont: (name: string, url: string) => void;
-  "timeline:update": (time: number) => void;
+  "timeline:update": (time: number, onHandle?: (timeStamp: number) => void) => void;
   "object:scaling": (id: string, width: number, height: number) => void;
   "object:rotating": (id: string, angle: number) => void;
   "object:moving": (id: string, left: number, top: number) => void;

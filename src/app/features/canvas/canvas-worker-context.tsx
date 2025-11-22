@@ -88,11 +88,17 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
     );
     app.current?.addEventListener(
       "timeline:update",
-      proxy((time: number) => {
+      proxy<FrontendCallback["timeline:update"]>((time, onUpdate) => {
         dispatch(setCurrentTime(time));
+        onUpdate?.(Date.now());
       }),
     );
     setHasInitializedWorker(true);
+  };
+
+  const seekTimeLine = (time: number) => {
+    app.current?.seek(time);
+    dispatch(setCurrentTime(time));
   };
 
   return (
@@ -103,6 +109,7 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
         hasInitializedWorker,
         clearShapeHighlight,
         highlightShape,
+        seekTimeLine,
       }}
     >
       {props.children}

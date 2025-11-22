@@ -15,6 +15,7 @@ export type ICanvasWorkerContext = {
   ) => void;
   app?: typeof CanvasWorkerProxy;
   hasInitializedWorker: boolean;
+  seekTimeLine(time: number): void;
 } & Pick<FrontendCallback, "clearShapeHighlight" | "highlightShape">;
 
 export const CanvasWorkerContext = createContext<ICanvasWorkerContext>({
@@ -22,5 +23,6 @@ export const CanvasWorkerContext = createContext<ICanvasWorkerContext>({
   hasInitializedWorker: false,
   highlightShape(width, height, top, left) {},
   clearShapeHighlight() {},
+  seekTimeLine() {},
 });
 export const useCanvasWorkerContext = () => useContext(CanvasWorkerContext);

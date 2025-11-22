@@ -18,6 +18,7 @@ import type { CreateShapeArgs, FrontendCallback } from "./types";
 // Needed handle missing API in worker
 import { addPropertiesToCanvas, debounce, getShapeCoordinates } from "@/app/util/util";
 import type { AnimatableProps, EditorMode, KeyFrame } from "@/types";
+import { proxy } from "comlink";
 import "./fabric-polyfill";
 
 export class App {
@@ -134,13 +135,12 @@ export class App {
     /* -------------------------------------------------------------------------- */
     const addKeyFrame = debounce(this.addKeyFrame.bind(this), 100).bind(this);
     /* -------------------------------------------------------------------------- */
-
     /* -------------------------------------------------------------------------- */
-    this.timeLine.parentTimeLine.eventCallback("onUpdate", () => {
+    this.timeLine.parentTimeLine.eventCallback("onUpdate", (...r) => {
       const time = this.timeLine.parentTimeLine.time();
-
       this.frontEndCallBack?.["timeline:update"]?.(time);
     });
+
     /* -------------------------------------------------------------------------- */
 
     /* -------------------------------------------------------------------------- */
@@ -156,8 +156,6 @@ export class App {
       }
     });
     this.canvas.on("object:scaling", (e) => {
-      console.log(e);
-
       this.selectedShapes?.forEach((id) => {
         const shape = this.shapeRecord.get(id);
         if (!shape) return;
@@ -285,7 +283,22 @@ export class App {
         this.frontEndCallBack[args[0]] = args[1];
         break;
       case "timeline:update":
-        this.frontEndCallBack[args[0]] = args[1];
+        {
+          const originalFunc = args[1];
+          let isLocked = false;
+          this.frontEndCallBack[args[0]] = (time) => {
+            if (isLocked) return;
+            isLocked = true;
+            console.log({ time });
+
+            originalFunc?.(
+              time,
+              proxy((timestamp: number) => {
+                isLocked = false;
+              }),
+            );
+          };
+        }
         break;
       case "registerFont":
         this.frontEndCallBack[args[0]] = args[1];
@@ -615,16 +628,18 @@ export class App {
   play() {
     if (this.timeLine.parentTimeLine.isActive()) {
       this.timeLine.parentTimeLine.pause();
+      const time = this.timeLine.parentTimeLine.time();
+      this.frontEndCallBack?.["timeline:update"]?.(time);
       return;
     }
     this.frontEndCallBack.clearShapeHighlight?.();
     this.canvas.discardActiveObject();
     this.timeLine.parentTimeLine.play();
   }
-  seek(...args: Parameters<gsap.core.Timeline["seek"]>) {
+  seek(time: number) {
     this.frontEndCallBack.clearShapeHighlight?.();
     this.canvas.discardActiveObject();
-    this.timeLine.parentTimeLine.seek(...args);
+    this.timeLine.parentTimeLine.seek(time, true);
   }
 
   static async loadFont() {
