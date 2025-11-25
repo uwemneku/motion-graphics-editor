@@ -5,15 +5,20 @@ import LayersSideMenu from "../layers";
 
 function FloatingTimeline() {
   return (
-    <div className="flex min-h-full flex-1 bg-white" style={{ "--size": "30px" } as CSSProperties}>
-      {/* Layers */}
-      <div className="min-h-full max-w-[200px] flex-1 border-r border-gray-300">
-        <div className="h-(--size) border-b border-gray-300"></div>
-        <LayersSideMenu />
-      </div>
-      <div className="flex-1">
-        <div className="h-(--size) border-b border-gray-300">
+    <div className="flex flex-1 flex-col bg-white" style={{ "--size": "30px" } as CSSProperties}>
+      <div className="sticky top-0 z-30 flex">
+        <div className="sticky top-0 left-0 z-30 w-[200px] shrink-0 border-r border-b border-gray-300 bg-white" />
+        <div className="sticky top-0 z-10 h-(--size) flex-1 border-b border-gray-300 bg-white">
           <TimelineTimeStampHeader />
+        </div>
+      </div>
+      {/* Layers */}
+      <div className="left-0 z-20 flex max-h-[200px] min-h-[150px] flex-1 overflow-y-scroll">
+        <div className="sticky left-0 h-full min-h-[150px] w-full max-w-[200px] border-r border-gray-300">
+          <LayersSideMenu />
+        </div>
+        <div className="min-h-fit flex-1">
+          <AllKeyFrames />
         </div>
       </div>
     </div>
@@ -40,7 +45,6 @@ function TimelineTimeStampHeader() {
     startX: 0,
     timelineWidth: 0,
     scrubStartTime: 0,
-    width: 0,
     time: timelineCurrentTime,
   });
   const trackDiv = useRef<HTMLDivElement>(null);
@@ -60,7 +64,6 @@ function TimelineTimeStampHeader() {
       const time = initDetails.current.scrubStartTime;
       if (deltaX < 0 && time <= 0) return;
       const playHeadPosition = time + (deltaX / initDetails.current.timelineWidth) * TOTAL_TIMELINE;
-
       canvasContext.seekTimeLine(playHeadPosition);
     },
     [canvasContext],
@@ -96,7 +99,7 @@ function TimelineTimeStampHeader() {
 
   return (
     <div
-      className="h-full"
+      className="z-10 h-full"
       ref={timelineHeaderRef}
       onMouseDown={handleClick}
       style={{ paddingLeft: PADDING_LEFT, paddingRight: PADDING_RIGHT }}
@@ -153,6 +156,17 @@ const Time = (props: { time: number }) => {
     <p className="pointer-events-none w-fit -translate-x-[calc(50%-1px)] bg-white/50 pb-1 text-xs text-gray-500 select-none">
       {props.time}
     </p>
+  );
+};
+
+const AllKeyFrames = () => {
+  const shapeIds = useAppSelector((state) => state.shapes.ids);
+  return (
+    <>
+      {shapeIds.map((id) => (
+        <div key={id} className="min-h-[37px] border-b border-gray-300"></div>
+      ))}
+    </>
   );
 };
 

@@ -11,30 +11,30 @@ import {
   Textbox,
   type TPointerEvent,
 } from "fabric";
-import gsap from "gsap";
 import { IS_WEB_WORKER } from "./globals";
 import type { CreateShapeArgs, FrontendCallback } from "./types";
 
 // Needed handle missing API in worker
 import { addPropertiesToCanvas, debounce, getShapeCoordinates } from "@/app/util/util";
-import type { AnimatableProps, EditorMode, KeyFrame } from "@/types";
+import type { EditorMode } from "@/types";
 import { proxy } from "comlink";
+import { AnimatableObject, type AnimatableProperties } from "../shapes/animatable-object/object";
 import "./fabric-polyfill";
 
 export class App {
   /**Main fabric canvas instance */
   private canvas: Canvas;
   /**A record of all fabric object in the canvas */
-  private shapeRecord = new Map<string, FabricObject>();
+  private shapeRecord = new Map<string, AnimatableObject>();
   /**Selected shapes in the canvas */
   private _selectedShapes: string[] = [];
   /**Fabric rect used to clip the canvas */
   private clipRect: Rect;
 
-  private timeLine = new AppTimeline(10);
-
   /**Stores callback from the main thread */
   private frontEndCallBack: Partial<FrontendCallback> = {};
+  private animationFrameCallbackId = 0;
+  private lastTime: number | null = performance.now();
 
   /* -------------------------------------------------------------------------- */
   // These static properties should only be used in web workers for polyfills to make fabric work from a webworker
@@ -44,10 +44,15 @@ export class App {
     {};
   static upperCanvas: OffscreenCanvas;
   static getUpperCanvasBoundingClient = () => {};
+
+  /* -------------------------------------------------------------------------- */
   /* -------------------------------------------------------------------------- */
 
   mainThreadTime = 0;
   mode: EditorMode = "animate";
+  isPlaying: boolean = false;
+  time = 0;
+  totalDuration = 10;
 
   constructor(
     /**
@@ -136,10 +141,6 @@ export class App {
     const addKeyFrame = debounce(this.addKeyFrame.bind(this), 100).bind(this);
     /* -------------------------------------------------------------------------- */
     /* -------------------------------------------------------------------------- */
-    this.timeLine.parentTimeLine.eventCallback("onUpdate", (...r) => {
-      const time = this.timeLine.parentTimeLine.time();
-      this.frontEndCallBack?.["timeline:update"]?.(time);
-    });
 
     /* -------------------------------------------------------------------------- */
 
@@ -157,7 +158,7 @@ export class App {
     });
     this.canvas.on("object:scaling", (e) => {
       this.selectedShapes?.forEach((id) => {
-        const shape = this.shapeRecord.get(id);
+        const shape = this.shapeRecord.get(id)?.fabricObject;
         if (!shape) return;
         const isTextBox = shape.type === "textbox";
         /* -------------------------------------------------------------------------- */
@@ -181,18 +182,17 @@ export class App {
     });
     this.canvas.on("object:rotating", ({ target }) => {
       this.selectedShapes?.forEach((id) => {
-        const shape = this.shapeRecord.get(id);
+        const shape = this.shapeRecord.get(id)?.fabricObject;
         if (!shape) return;
         this.frontEndCallBack?.["object:rotating"]?.(id, target.angle);
-        addKeyFrame(id, { angle: shape.angle });
       });
     });
     this.canvas.on("object:moving", ({ target }) => {
       this.selectedShapes?.forEach((id) => {
-        const shape = this.shapeRecord.get(id);
+        const shape = this.shapeRecord.get(id)?.fabricObject;
         if (!shape) return;
         this.frontEndCallBack?.["object:moving"]?.(id, shape.left, shape.top);
-        addKeyFrame(id, { left: target.left, top: target.top });
+        addKeyFrame(id, this.time, { left: shape.left, top: shape.top });
       });
     });
     this.canvas.on("selection:created", () => {
@@ -225,8 +225,6 @@ export class App {
     this.canvas.on("mouse:out", () => {
       this.frontEndCallBack?.clearShapeHighlight?.();
     });
-
-    this.startRenderLoop();
   }
 
   set selectedShapes(ids: string[]) {
@@ -289,7 +287,6 @@ export class App {
           this.frontEndCallBack[args[0]] = (time) => {
             if (isLocked) return;
             isLocked = true;
-            console.log({ time });
 
             originalFunc?.(
               time,
@@ -301,6 +298,12 @@ export class App {
         }
         break;
       case "registerFont":
+        this.frontEndCallBack[args[0]] = args[1];
+        break;
+      case "keyframe:add":
+        this.frontEndCallBack[args[0]] = args[1];
+        break;
+      case "keyframe:delete":
         this.frontEndCallBack[args[0]] = args[1];
         break;
       default: {
@@ -321,10 +324,6 @@ export class App {
   private render() {
     this.canvas.renderAll();
     this.canvas.renderTop();
-  }
-  private startRenderLoop() {
-    this.render();
-    requestAnimationFrame(this.startRenderLoop.bind(this));
   }
 
   /* -------------------------------------------------------------------------- */
@@ -446,16 +445,15 @@ export class App {
         originY: 0.5, // or 'bottom', 'center', numeric value too
       });
 
-      this.shapeRecord.set(id, shape);
       this.canvas.centerObject(shape);
+      this.shapeRecord.set(id, new AnimatableObject(shape));
       this.canvas.add(shape);
-      this.freeKeyFrames(shape, id);
       return id;
     }
   }
 
   deleteShape(id: string) {
-    const shape = this.shapeRecord.get(id);
+    const shape = this.shapeRecord.get(id)?.fabricObject;
     if (shape) {
       this.canvas.remove(shape);
       shape.dispose();
@@ -464,9 +462,11 @@ export class App {
   }
 
   selectShape(id: string) {
-    const shape = this.shapeRecord.get(id);
+    const shape = this.shapeRecord.get(id)?.fabricObject;
+    console.log(id);
     if (shape) {
       this.canvas.setActiveObject(shape);
+      this.canvas.renderAll();
     }
   }
 
@@ -494,17 +494,17 @@ export class App {
   }
 
   getShapeCoordinatesByID(id: string) {
-    const shape = this.shapeRecord.get(id);
+    const shape = this.shapeRecord.get(id)?.fabricObject;
     if (shape) {
       return getShapeCoordinates(shape);
     }
   }
   getShapeByCoordinates() {
-    this.canvas.findTarget({});
+    // this.canvas.findTarget({});
   }
 
   async getShapeImage(id: string) {
-    const shape = this.shapeRecord.get(id);
+    const shape = this.shapeRecord.get(id)?.fabricObject;
 
     if (shape) {
       if (shape instanceof FabricImage) {
@@ -525,121 +525,66 @@ export class App {
   /* -------------------------------------------------------------------------- */
   // Animation functions
   /* -------------------------------------------------------------------------- */
-  private addKeyFrame(
-    id: string,
-    properties: Partial<{ left: number; top: number; angle: number }>,
-  ) {
+  private addKeyFrame(id: string, time: number, keyframe: Partial<AnimatableProperties>) {
     const shape = this.shapeRecord.get(id);
     if (!shape) return;
-    const debouncedUpdate = debounce(() => {
-      shape.setCoords();
-    }, 100);
-    const shapeKeyframes = shape?.keyFrames;
-    const timeStamp = this.timeLine.parentTimeLine.time();
-
-    if (timeStamp === 0) {
-      const tween = this.timeLine.parentTimeLine.getById(id);
-      if (tween) this.timeLine.parentTimeLine.remove(tween);
-      this.freeKeyFrames(shape, id);
-      return;
-    }
-
-    for (const key in properties) {
-      if (!Object.hasOwn(properties, key)) continue;
-
-      //
-      const propertyAnimationKey = `${id}-${key}-${timeStamp}`;
-      const propertyKeyFrames = shapeKeyframes?.[key];
-      const _key = key as keyof typeof properties;
-      const value = properties[_key];
-
-      let startTimeStamp = 0;
-      let animationDuration = timeStamp;
-      //
-      const tween = this.timeLine.parentTimeLine.getById(propertyAnimationKey);
-      if (tween) this.timeLine.parentTimeLine.remove(tween);
-      //
-
-      keyframes: {
-        // Add keyframe for property if missing
-        if (!propertyKeyFrames) {
-          console.log("first animation");
-
-          shape.keyFrames = {
-            ...shape.keyFrames,
-            [key]: [timeStamp],
-          };
-          break keyframes;
-        }
-
-        const firstTimeStamp = propertyKeyFrames[propertyKeyFrames.length - 1];
-        const lastTimeStamp = propertyKeyFrames[propertyKeyFrames.length - 1];
-        const isAfterLastTimestamp = timeStamp > lastTimeStamp;
-        if (isAfterLastTimestamp) {
-          console.log("after animation");
-
-          startTimeStamp = lastTimeStamp;
-          animationDuration = timeStamp - lastTimeStamp;
-          propertyKeyFrames.push(timeStamp);
-          break keyframes;
-        }
-      }
-
-      this.timeLine.parentTimeLine.to(
-        shape,
-        {
-          [key]: value,
-          duration: animationDuration,
-          id: propertyAnimationKey,
-          ease: "none",
-          onUpdate() {
-            debouncedUpdate();
-          },
-        },
-        startTimeStamp,
-      );
-    }
-    this.timeLine.parentTimeLine.invalidate();
-    console.log(this.timeLine.parentTimeLine.getChildren().map((i) => i.vars));
-    console.log({ shapeKeyframes: shape.keyFrames });
-
-    return;
+    Object.entries(keyframe).forEach((args) => {
+      const [key, value] = args as {
+        [K in keyof AnimatableProperties]: [K, AnimatableProperties[K]];
+      }[keyof AnimatableProperties];
+      shape.addKeyframe({ property: key as keyof AnimatableProperties, time, value, easing: "" });
+      this.frontEndCallBack["keyframe:add"]?.(id, time, key, value);
+    });
   }
-  private freeKeyFrames(shape: FabricObject, id: string) {
-    const tween = this.timeLine.parentTimeLine.getById(id);
-    if (tween) this.timeLine.parentTimeLine.remove(tween);
 
-    this.timeLine.parentTimeLine.set(
-      shape,
-      {
-        top: shape.top,
-        left: shape.left,
-        opacity: shape.opacity,
-        backgroundColor: shape.backgroundColor,
-        duration: 0,
-        angle: shape.angle,
-        id: `${id}`,
-      },
-      0,
-    );
-    // this.timeLine.parentTimeLine.invalidate();
-  }
   onMouseUp() {}
   play() {
-    if (this.timeLine.parentTimeLine.isActive()) {
-      this.timeLine.parentTimeLine.pause();
-      const time = this.timeLine.parentTimeLine.time();
-      this.frontEndCallBack?.["timeline:update"]?.(time);
-      return;
+    this.isPlaying = true;
+    this.lastTime = performance.now();
+    requestAnimationFrame(this.startPlayingLoop.bind(this));
+  }
+  startPlayingLoop(timestamp: number) {
+    if (!this.isPlaying) return;
+
+    if (this.lastTime == null) {
+      this.lastTime = timestamp;
     }
-    this.frontEndCallBack.clearShapeHighlight?.();
-    this.canvas.discardActiveObject();
-    this.timeLine.parentTimeLine.play();
+
+    const dt = (timestamp - this.lastTime) / 1000;
+    this.lastTime = timestamp;
+
+    this.time += dt;
+
+    this.seek(this.time);
+    this.frontEndCallBack?.["timeline:update"]?.(this.time);
+
+    if (this.time >= 10) {
+      this.time = 0;
+    }
+
+    this.animationFrameCallbackId = requestAnimationFrame(this.startPlayingLoop.bind(this));
+  }
+  pause() {
+    this.isPlaying = false;
+    cancelAnimationFrame(this.animationFrameCallbackId);
+    this.lastTime = null;
+    this.shapeRecord.forEach((value) => {
+      value.fabricObject.setCoords();
+    });
   }
   seek(time: number) {
-    this.frontEndCallBack.clearShapeHighlight?.();
-    this.canvas.discardActiveObject();
-    this.timeLine.parentTimeLine.seek(time, true);
+    const _time = Math.min(this.totalDuration, Math.max(0, time));
+    this.shapeRecord.forEach((shape) => {
+      shape.seek(_time);
+    });
+    if (!this.isPlaying) {
+      this.time = _time;
+      this.shapeRecord.forEach((value) => {
+        value.fabricObject.setCoords();
+        console.log("updated");
+      });
+    }
+    this.canvas.renderAll();
   }
 
   static async loadFont() {
@@ -660,31 +605,3 @@ export class App {
     }
   }
 }
-
-class AppTimeline {
-  parentTimeLine = gsap.timeline({ paused: true });
-
-  constructor(duration: number) {
-    this.parentTimeLine.to(
-      {},
-      {
-        x: 10,
-        duration,
-        onComplete: (() => {
-          // this.parentTimeLine.restart();
-        }).bind(this),
-      },
-    );
-  }
-  addAnimation(object: FabricObject, keyframe: KeyFrame, startTime: number, duration: number) {
-    for (const key in keyframe.animatable) {
-      if (!Object.hasOwn(keyframe.animatable, key)) continue;
-      const value = keyframe.animatable[key as keyof AnimatableProps];
-      const animationKey = `${object.id}-${value}-${startTime}`;
-      this.parentTimeLine.remove(animationKey);
-      this.parentTimeLine.to(object, { [key]: value, id: animationKey, duration }, startTime);
-    }
-  }
-}
-
-const insertKeyFrame = (currentKeyFrames: number[], timestamp: number) => {};

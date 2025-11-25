@@ -1,7 +1,8 @@
 import { useAppDispatch } from "@/app/store";
 import { proxy, transfer } from "comlink";
 import gsap from "gsap";
-import { useRef, useState, type PropsWithChildren } from "react";
+import { useCallback, useEffect, useRef, useState, type PropsWithChildren } from "react";
+import { deleteShape } from "../shapes/slice";
 import { setCurrentTime } from "../timeline/slice";
 import { App } from "../web-workers/app";
 import CanvasWorkerProxy from "../web-workers/main-thread-exports";
@@ -86,6 +87,7 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
         font.load();
       }),
     );
+
     app.current?.addEventListener(
       "timeline:update",
       proxy<FrontendCallback["timeline:update"]>((time, onUpdate) => {
@@ -93,13 +95,58 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
         onUpdate?.(Date.now());
       }),
     );
+    app.current?.addEventListener(
+      "keyframe:add",
+      proxy<FrontendCallback["keyframe:add"]>((id, time, property, value) => {
+        console.log(id, time, property, value);
+      }),
+    );
     setHasInitializedWorker(true);
   };
 
   const seekTimeLine = (time: number) => {
-    app.current?.seek(time);
-    dispatch(setCurrentTime(time));
+    const _time = Math.min(10, Math.max(0, time));
+    app.current?.pause();
+    app.current?.seek(_time);
+    dispatch(setCurrentTime(_time));
   };
+
+  const handleKeyDown = useCallback(
+    async (e: KeyboardEvent) => {
+      console.log(e.key);
+
+      switch (e.key) {
+        case "Backspace":
+        case "Delete":
+          app?.current?.deleteSelectedShapes().then((ids) => {
+            ids.forEach((id) => {
+              dispatch(deleteShape(id));
+            });
+          });
+          break;
+        case " ":
+          {
+            const isPlaying = await app.current?.isPlaying;
+            console.log({ isPlaying });
+
+            if (!isPlaying) {
+              app.current?.play();
+            } else {
+              app.current?.pause();
+            }
+          }
+          break;
+      }
+    },
+    [dispatch],
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [handleKeyDown]);
 
   return (
     <CanvasWorkerContext.Provider

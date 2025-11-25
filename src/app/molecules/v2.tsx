@@ -1,11 +1,8 @@
-import { proxy, wrap, type Remote } from "comlink";
 import { useRef } from "react";
 import { BiExport } from "react-icons/bi";
-import type { WorkerAPI } from "../util/export-woker";
 import RendererWorker from "../util/export-woker/index?worker";
 
 const worker = new RendererWorker();
-const workerProxy = wrap<Remote<WorkerAPI>>(worker);
 function ExportFeature2() {
   const r = 10;
   const c = Math.PI * r * 2;
@@ -32,22 +29,8 @@ function ExportFeature2() {
 
     //
 
-    const res = await workerProxy.start(
-      videoDimensions,
-      { x: 0, y: 0 },
-      10,
-      scale,
-      [],
-      proxy(p),
-      quality,
-      // offscreen,
-      // transfer(offscreen, [offscreen]),
-    );
-    console.log({ res });
     try {
       console.timeEnd("export_worker");
-
-      window.open(res, "_blank");
     } catch (error) {
       console.log({ error });
     }

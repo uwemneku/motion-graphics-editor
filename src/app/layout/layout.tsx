@@ -91,7 +91,7 @@ export default function AppLayout() {
           <ShapePicker initiMode={initMode} onModeSwitch={onEditorModeSwithc} />
         </div>
         <div
-          className={`p-x-2 drop absolute bottom-0 left-0 z-10 flex max-h-[200px] min-h-[150px] w-full -translate-y-(--timeline-offset) flex-col overflow-hidden border-t border-t-gray-300`}
+          className={`p-x-2 drop absolute bottom-0 left-0 z-10 flex w-full -translate-y-(--timeline-offset) flex-col border-t border-t-gray-300`}
           ref={timelineRef}
         >
           <FloatingTimeline />

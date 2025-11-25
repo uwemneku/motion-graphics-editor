@@ -1,5 +1,3 @@
-import type Konva from "konva";
-
 export type EditorMode = "design" | "animate";
 export interface AnimatableProps {
   x?: number;
@@ -34,7 +32,6 @@ export interface TimeLineStore {
 
   selectedNodeId?: string;
   selectNode: (id: string | undefined) => void;
-  addNode: (node: Konva.Node, id: string) => void;
   createNode: (args: CreateNodeArgs) => void;
   deleteNode: (id: string) => void;
   removeNode: (id: string) => void;
@@ -56,6 +53,7 @@ export type CreateNodeArgs = {
   [K in keyof NodeArgs]: {
     type: K;
     previewImage?: string;
+    keyframes?: [];
     // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   } & (NodeArgs[K] extends void ? {} : NodeArgs[K]);
 }[keyof NodeArgs];

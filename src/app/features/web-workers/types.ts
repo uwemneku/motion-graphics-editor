@@ -1,3 +1,5 @@
+import type { AnimatableProperties } from "../shapes/animatable-object/object";
+
 export type ShapeArgs = {
   rect: { width: number; height: number };
   circle: { radius: number };
@@ -54,6 +56,14 @@ export type FrontendCallback = {
   clearShapeHighlight: () => void;
   registerFont: (name: string, url: string) => void;
   "timeline:update": (time: number, onHandle?: (timeStamp: number) => void) => void;
+  "keyframe:add": <P extends keyof AnimatableProperties>(
+    id: string,
+    time: number,
+    ...value: {
+      [K in P]: [K, AnimatableProperties[K]];
+    }[P]
+  ) => void;
+  "keyframe:delete": (time: number, onHandle?: (timeStamp: number) => void) => void;
   "object:scaling": (id: string, width: number, height: number) => void;
   "object:rotating": (id: string, angle: number) => void;
   "object:moving": (id: string, left: number, top: number) => void;

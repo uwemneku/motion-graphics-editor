@@ -55,8 +55,8 @@ function ShapePicker(props: Props) {
 
         const imgSrc = event.target?.result;
         if (typeof imgSrc === "string") {
-          const image = new Image();
-          image.src = imgSrc;
+          // const image = new Image();
+          // image.src = imgSrc;
 
           // await image.decode();
           // const bitmapImage = await createImageBitmap(image);

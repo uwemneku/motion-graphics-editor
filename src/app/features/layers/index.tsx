@@ -4,7 +4,6 @@ import { useCanvasWorkerContext } from "../canvas/useCanvasContext";
 
 function LayersSideMenu() {
   const shapeIds = useAppSelector((state) => state.shapes.ids);
-  console.log("layerrrs");
 
   return (
     <div className="">
@@ -30,7 +29,7 @@ function ShapeDetails(props: { id: string }) {
 
   return (
     <div
-      className="flex items-center gap-3 border-b border-b-gray-300 p-2 hover:bg-gray-400"
+      className="flex items-center gap-3 border-b border-b-gray-300 p-2 select-none hover:bg-gray-400"
       onClick={() => canvasContext.app?.selectShape(props.id)}
       onMouseOver={async (e) => {
         const coordinates = await canvasContext.app?.getShapeCoordinatesByID(props.id);
@@ -45,7 +44,7 @@ function ShapeDetails(props: { id: string }) {
       }}
       onMouseOut={canvasContext.clearShapeHighlight}
     >
-      <figure className="size-[20px] overflow-hidden rounded-md bg-black/25 p-1">
+      <figure className="size-5 overflow-hidden rounded-md bg-black/25 p-1">
         <img src={img} className="w-full object-contain" />
       </figure>
       <p className="text-sm font-light">{shapeDetails?.type}</p>

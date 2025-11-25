@@ -65,11 +65,11 @@ if (IS_WEB_WORKER) {
                 isUpperCanvas = true;
               }
             }) as HTMLElement["setAttribute"],
-            addEventListener: (...args: Parameters<HTMLCanvasElement["addEventListener"]>) => {
+            addEventListener: (type: string, func: (...f: unknown[]) => void, options: object) => {
               if (isUpperCanvas) {
-                const [type, func = () => {}, options = {}] = args;
+                // const [type, func = () => {}] = args;
                 App.fabricUpperCanvasEventListenersCallback[type] = (...g) => {
-                  return func(...g);
+                  return func?.(...g);
                 };
               }
             },
@@ -141,6 +141,7 @@ if (IS_WEB_WORKER) {
       r(...d);
     },
     devicePixelRatio: 1,
+    // @ts-expect-error this function is needed when fabric is working in a web worker
     getComputedStyle: () => {},
   };
 }

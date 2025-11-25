@@ -5,10 +5,7 @@ import { insertKeyFrameIntoElementTimeline } from "./timeline";
 describe("Adding element keyframe", () => {
   const initKeyFrame: KeyFrame[] = [];
   const keyFrame: KeyFrame = { timeStamp: 5, animatable: {}, id: "" };
-  const res = insertKeyFrameIntoElementTimeline(
-    keyFrame,
-    initKeyFrame
-  ).keyframes;
+  const res = insertKeyFrameIntoElementTimeline(keyFrame, initKeyFrame).keyframes;
 
   test("Should add keyframe", () => {
     expect(res.length).toBe(1);
@@ -20,7 +17,7 @@ describe("Adding element keyframe", () => {
   test("Should replace the same time Stamp", () => {
     const f = insertKeyFrameIntoElementTimeline(
       { timeStamp: 5, animatable: {}, id: "" },
-      res
+      res,
     ).keyframes;
 
     expect(f.length).toBe(1);
@@ -39,10 +36,7 @@ describe("Adding element keyframe", () => {
       { timeStamp: 5, animatable: {}, id: "" },
       { timeStamp: 7, animatable: {}, id: "" },
     ];
-    const _ = insertKeyFrameIntoElementTimeline(
-      newKeyframe,
-      currentKeyFrames
-    ).keyframes;
+    const _ = insertKeyFrameIntoElementTimeline(newKeyframe, currentKeyFrames).keyframes;
 
     expect(_.length).toBe(3);
     expect(_[2]?.timeStamp).toBe(10);
@@ -63,10 +57,7 @@ describe("Adding element keyframe", () => {
       { timeStamp: 5, animatable: {}, id: "" },
       { timeStamp: 7, animatable: {}, id: "" },
     ];
-    const _ = insertKeyFrameIntoElementTimeline(
-      newKeyframe,
-      currentKeyFrames
-    ).keyframes;
+    const _ = insertKeyFrameIntoElementTimeline(newKeyframe, currentKeyFrames).keyframes;
 
     expect(_.length).toBe(3);
     expect(_[1]?.timeStamp).toBe(6);
@@ -78,8 +69,71 @@ describe("Adding element keyframe", () => {
     // Add the last keyframe from current keyframes
     const ___ = insertKeyFrameIntoElementTimeline(
       { timeStamp: 7, animatable: {}, id: "" },
-      __
+      __,
     ).keyframes;
     expect(___.length).toBe(3);
+  });
+
+  test("Should insert at the start", () => {
+    const newKeyframe: KeyFrame = {
+      timeStamp: 2,
+      animatable: {},
+      id: "",
+    };
+    const currentKeyFrames: KeyFrame[] = [
+      { timeStamp: 5, animatable: {}, id: "" },
+      { timeStamp: 7, animatable: {}, id: "" },
+    ];
+    const res = insertKeyFrameIntoElementTimeline(newKeyframe, currentKeyFrames);
+    expect(res.insertIndex).toBe(0);
+    expect(res.keyframes.length).toBe(3);
+    expect(res.keyframes.map((i) => i.timeStamp)).toStrictEqual([2, 5, 7]);
+  });
+
+  test("should insert keyframe at penultimate index", () => {
+    const newKeyframe = {
+      timeStamp: 11,
+      animatable: {},
+      id: "",
+    };
+    const keyframes = [
+      {
+        timeStamp: 0,
+        animatable: {},
+        id: "",
+      },
+      {
+        timeStamp: 2,
+        animatable: {},
+        id: "",
+      },
+      {
+        timeStamp: 5,
+        animatable: {},
+        id: "",
+      },
+      {
+        timeStamp: 10,
+        animatable: {},
+        id: "",
+      },
+      {
+        timeStamp: 12,
+        animatable: {},
+        id: "",
+      },
+    ];
+    const res = insertKeyFrameIntoElementTimeline(newKeyframe, keyframes);
+    expect(res.keyframes.length).toBe(keyframes.length + 1);
+    expect(res.keyframes[4]).toStrictEqual(newKeyframe);
+
+    //
+    const newKeyframe1 = {
+      timeStamp: 3,
+      animatable: {},
+      id: "",
+    };
+    const res1 = insertKeyFrameIntoElementTimeline(newKeyframe1, keyframes);
+    expect(res1.keyframes[2]).toStrictEqual(newKeyframe1);
   });
 });

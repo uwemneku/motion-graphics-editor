@@ -1,6 +1,5 @@
 import { useAppDispatch } from "@/app/store";
 import { useCallback, useEffect, useRef, type MouseEventHandler } from "react";
-import { deleteShape } from "../shapes/slice";
 import type { FilteredMouseEvent } from "../web-workers/types";
 import { FloatingHUDLabel } from "./floating-hud-label";
 import { useCanvasWorkerContext } from "./useCanvasContext";
@@ -42,27 +41,6 @@ function Screen() {
     );
   };
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      console.log(e.key);
-
-      switch (e.key) {
-        case "Backspace":
-        case "Delete":
-          canvasContext.app?.deleteSelectedShapes().then((ids) => {
-            ids.forEach((id) => {
-              dispatch(deleteShape(id));
-            });
-          });
-          break;
-        case " ":
-          canvasContext.app?.play();
-          break;
-      }
-    },
-    [canvasContext.app, dispatch],
-  );
-
   const handleMouseUp = useCallback(() => {
     isDragging.current = false;
     isControlPressed.current = false;
@@ -97,13 +75,11 @@ function Screen() {
     }
 
     window.addEventListener("mouseup", handleMouseUp);
-    window.addEventListener("keydown", handleKeyDown);
     return () => {
       resizeObserver.disconnect();
       window.removeEventListener("mouseup", handleMouseUp);
-      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [canvasContext, handleKeyDown, handleMouseUp]);
+  }, [canvasContext, handleMouseUp]);
 
   return (
     <div
