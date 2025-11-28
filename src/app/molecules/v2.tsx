@@ -1,8 +1,6 @@
 import { useRef } from "react";
 import { BiExport } from "react-icons/bi";
-import RendererWorker from "../util/export-woker/index?worker";
 
-const worker = new RendererWorker();
 function ExportFeature2() {
   const r = 10;
   const c = Math.PI * r * 2;

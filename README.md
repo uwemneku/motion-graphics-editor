@@ -1,5 +1,13 @@
 # Notes
 
+29/11/2024
+
+- Key frame logic
+- Trying to decide how much data should live in the main thread.
+- Sending Mouse events from main thread to worker works well on most browsers except firefox. It seems like firefox does not throttle mouse events when sent from the main thread to a web worker.
+- Currently carrying out animation based on the framerate that `requestAnimationFrame` allows but this might not be the best approach for procedural video generation.
+- I'll merge the fabric branch to the main branch. I think Fabric.js would be able to achieve most basic functionalities. Maybe would try using three.js to do 2.5d later on to achieve something similar to Moho.
+
 13/11/2024
 
 - Added polyfill in worker to make it possible for fabric.js to control upper-canvas from web worker

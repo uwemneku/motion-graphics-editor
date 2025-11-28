@@ -59,6 +59,11 @@ export type FrontendCallback = {
   "keyframe:add": <P extends keyof AnimatableProperties>(
     id: string,
     time: number,
+    keyframeDetails: {
+      keyframeId: string;
+      insertIndex: number;
+      shouldReplace: boolean;
+    },
     ...value: {
       [K in P]: [K, AnimatableProperties[K]];
     }[P]

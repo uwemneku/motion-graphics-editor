@@ -2,7 +2,11 @@ import { useAppSelector } from "@/app/store";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useCanvasWorkerContext } from "../canvas/useCanvasContext";
 import LayersSideMenu from "../layers";
+import { AnimatableObject } from "../shapes/animatable-object/object";
 
+const PADDING_LEFT = 50;
+const PADDING_RIGHT = 50;
+const TOTAL_TIMELINE = 10;
 function FloatingTimeline() {
   return (
     <div className="flex flex-1 flex-col bg-white" style={{ "--size": "30px" } as CSSProperties}>
@@ -17,7 +21,14 @@ function FloatingTimeline() {
         <div className="sticky left-0 h-full min-h-[150px] w-full max-w-[200px] border-r border-gray-300">
           <LayersSideMenu />
         </div>
-        <div className="min-h-fit flex-1">
+        <div
+          className="min-h-fit flex-1"
+          ref={(node) => {
+            if (!node) return;
+            const width = node.clientWidth - PADDING_LEFT - PADDING_RIGHT;
+            node.style.setProperty("--timeline-width", `${width}px`);
+          }}
+        >
           <AllKeyFrames />
         </div>
       </div>
@@ -30,10 +41,6 @@ function FloatingTimeline() {
  * @returns
  */
 function TimelineTimeStampHeader() {
-  const PADDING_LEFT = 50;
-  const PADDING_RIGHT = 50;
-  const TOTAL_TIMELINE = 10;
-
   const canvasContext = useCanvasWorkerContext();
   const timelineHeaderRef = useRef<HTMLDivElement>(null);
   const [duration, setDuration] = useState(10);
@@ -56,6 +63,10 @@ function TimelineTimeStampHeader() {
     if (!isMouseDown.current) return;
     isMouseDown.current = false;
   }, []);
+  const movePlayhead = (time: number) => {
+    trackDiv.current?.style.setProperty("transition", "left 0.5s");
+    canvasContext.seekTimeLine(time);
+  };
 
   const seekToMousePosition = useCallback(
     (e: Pick<MouseEvent, "clientX">, skipMouseDownCheck = false) => {
@@ -69,16 +80,18 @@ function TimelineTimeStampHeader() {
     [canvasContext],
   );
 
-  const handleClick = (e: Pick<MouseEvent, "clientX">) => {
-    if (!timelineHeaderRef.current) return;
+  const handleClick = (e: Pick<MouseEvent, "clientX" | "target" | "currentTarget">) => {
+    const target = e.target as HTMLElement;
+    const isTimeStamp = target?.hasAttribute("data-timestamp");
+
+    if (!timelineHeaderRef.current || isTimeStamp) return;
     const { left = 0 } = timelineHeaderRef.current.getBoundingClientRect();
     const timelineOffset = Math.max(0, e.clientX - left - PADDING_LEFT);
     const playHeadPosition = Math.min(
       Math.max(0, (timelineOffset / initDetails.current.timelineWidth) * duration),
       TOTAL_TIMELINE,
     );
-    trackDiv.current?.style.setProperty("transition", "left 0.5s");
-    canvasContext.seekTimeLine(playHeadPosition);
+    movePlayhead(playHeadPosition);
   };
 
   const saveTimelineWidth = (node: HTMLElement | null) => {
@@ -138,11 +151,22 @@ function TimelineTimeStampHeader() {
           <div className="flex w-full flex-1">
             {new Array(duration).fill("").map((_, index) => (
               <div className="flex-1">
-                <Time time={index} key={index} />
+                <Time
+                  onClick={() => {
+                    movePlayhead(index);
+                  }}
+                  time={index}
+                  key={index}
+                />
               </div>
             ))}
             <div className="translate-x-[calc(100%-1px)]">
-              <Time time={duration} />
+              <Time
+                onClick={() => {
+                  movePlayhead(duration);
+                }}
+                time={duration}
+              />
             </div>
           </div>
         </div>
@@ -151,9 +175,18 @@ function TimelineTimeStampHeader() {
   );
 }
 
-const Time = (props: { time: number }) => {
+const Time = (props: { time: number; onClick(): void }) => {
   return (
-    <p className="pointer-events-none w-fit -translate-x-[calc(50%-1px)] bg-white/50 pb-1 text-xs text-gray-500 select-none">
+    <p
+      data-timestamp
+      className="z-50 w-fit min-w-2 -translate-x-[calc(50%-1px)] pb-1 text-xs text-gray-500 select-none"
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        props.onClick();
+        console.log("hello___");
+      }}
+    >
       {props.time}
     </p>
   );
@@ -164,9 +197,41 @@ const AllKeyFrames = () => {
   return (
     <>
       {shapeIds.map((id) => (
-        <div key={id} className="min-h-[37px] border-b border-gray-300"></div>
+        <div key={id} className="min-h-[37px] border-b border-gray-300">
+          <KeyFrames id={id} key={id} />
+        </div>
       ))}
     </>
+  );
+};
+
+const KeyFrames = (props: { id: string }) => {
+  const shapeKeyFrames = useAppSelector((state) => state.timeline.keyFrames[props.id]) || [];
+  return (
+    <div style={{ paddingLeft: PADDING_LEFT }} className="flex flex-col gap-2 py-2">
+      {AnimatableObject.animatableProperties.map((animatableProperty) => {
+        const shouldHide = !shapeKeyFrames?.[animatableProperty]?.[0];
+        if (shouldHide) return null;
+        return (
+          <div
+            className="flex"
+            data-animatable_property={animatableProperty}
+            key={animatableProperty}
+          >
+            {shapeKeyFrames?.[animatableProperty]?.map((i, index) => (
+              <div
+                className=""
+                style={{
+                  transform: `translateY(0px) translateX(calc(-50% + 1px - ${index * 12}px + (var(--timeline-width) * ${i.time / TOTAL_TIMELINE})))`,
+                }}
+              >
+                <div className="size-3 rotate-45 border border-gray-300 bg-gray-200 hover:border-blue-300 hover:bg-blue-200" />
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
   );
 };
 

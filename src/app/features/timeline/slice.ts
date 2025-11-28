@@ -1,10 +1,11 @@
-import type { KeyFrame } from "@/types";
 import { createSlice } from "@reduxjs/toolkit";
+import type { AnimatableProperties, Keyframe } from "../shapes/animatable-object/object";
+import type { FrontendCallback } from "../web-workers/types";
 
 export interface TimelineState {
   currentTime: number;
   isPaused?: boolean;
-  keyFrames: Record<string, KeyFrame[]>;
+  keyFrames: Record<string, Partial<Record<keyof AnimatableProperties, Keyframe[]>>>;
 }
 
 const initialState: TimelineState = {
@@ -19,11 +20,38 @@ export const timelineSlice = createSlice({
     setCurrentTime: (state, action: { payload: number }) => {
       state.currentTime = action.payload;
     },
-    updateKeyFrame: (
+    addKeyFrame: (
       state,
-      action: { payload: { keyframes: KeyFrame[]; shapeId: string } },
+      action: {
+        payload: Parameters<FrontendCallback["keyframe:add"]>;
+      },
     ) => {
-      state.keyFrames[action.payload.shapeId] = action.payload.keyframes;
+      const [shapeId, time, keyframeDetails, animatableProperty, value] = action.payload;
+      // create shape keyframe object if missing
+      if (!state.keyFrames[shapeId]) {
+        state.keyFrames[shapeId] = {};
+      }
+      // create animatable keyframe array if missing
+      const shapeKeyFrames = state.keyFrames[shapeId];
+      if (!shapeKeyFrames[animatableProperty]) {
+        shapeKeyFrames[animatableProperty] = [];
+      }
+      // If keyframe already exist for that timestamp, delete it
+      if (keyframeDetails.shouldReplace) {
+        shapeKeyFrames[animatableProperty] = shapeKeyFrames[animatableProperty].filter(
+          (i) => i.time !== time,
+        );
+      }
+      shapeKeyFrames[animatableProperty]?.push({
+        easing: "",
+        id: keyframeDetails.keyframeId,
+        property: animatableProperty,
+        time: time,
+        value: value,
+      });
+    },
+    updateKeyFrame: (state, action: { payload: { keyframes: Keyframe[]; shapeId: string } }) => {
+      // state.keyFrames[action.payload.shapeId] = action.payload.keyframes;
     },
     setIsPaused: (state, action: { payload: boolean }) => {
       state.isPaused = action.payload;
@@ -33,5 +61,4 @@ export const timelineSlice = createSlice({
 
 export default timelineSlice.reducer;
 
-export const { setCurrentTime, updateKeyFrame, setIsPaused } =
-  timelineSlice.actions;
+export const { setCurrentTime, updateKeyFrame, setIsPaused, addKeyFrame } = timelineSlice.actions;

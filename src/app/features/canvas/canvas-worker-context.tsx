@@ -3,7 +3,7 @@ import { proxy, transfer } from "comlink";
 import gsap from "gsap";
 import { useCallback, useEffect, useRef, useState, type PropsWithChildren } from "react";
 import { deleteShape } from "../shapes/slice";
-import { setCurrentTime } from "../timeline/slice";
+import { addKeyFrame, setCurrentTime } from "../timeline/slice";
 import { App } from "../web-workers/app";
 import CanvasWorkerProxy from "../web-workers/main-thread-exports";
 import type { FrontendCallback } from "../web-workers/types";
@@ -97,9 +97,11 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
     );
     app.current?.addEventListener(
       "keyframe:add",
-      proxy<FrontendCallback["keyframe:add"]>((id, time, property, value) => {
-        console.log(id, time, property, value);
-      }),
+      proxy<FrontendCallback["keyframe:add"]>(
+        (id, time, keyframeDetails, animatableProperty, value) => {
+          dispatch(addKeyFrame([id, time, keyframeDetails, animatableProperty, value]));
+        },
+      ),
     );
     setHasInitializedWorker(true);
   };

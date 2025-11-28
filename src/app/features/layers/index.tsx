@@ -45,7 +45,7 @@ function ShapeDetails(props: { id: string }) {
       onMouseOut={canvasContext.clearShapeHighlight}
     >
       <figure className="size-5 overflow-hidden rounded-md bg-black/25 p-1">
-        <img src={img} className="w-full object-contain" />
+        {/* <img src={img} className="w-full object-contain" /> */}
       </figure>
       <p className="text-sm font-light">{shapeDetails?.type}</p>
     </div>

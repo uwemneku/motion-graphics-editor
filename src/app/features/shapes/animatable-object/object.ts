@@ -6,7 +6,12 @@ export type AnimatableProperties = {
   top: number;
   scaleX: number;
   scaleY: number;
+  width: number;
+  height: number;
   opacity: number;
+  angle: number;
+  rx: number;
+  ry: number;
   //   clipPath: string;
 };
 export interface Keyframe<K extends keyof AnimatableProperties = keyof AnimatableProperties> {
@@ -18,11 +23,14 @@ export interface Keyframe<K extends keyof AnimatableProperties = keyof Animatabl
 }
 export class AnimatableObject {
   static animatableProperties: (keyof AnimatableProperties)[] = [
-    "scaleX",
-    "scaleY",
     "left",
     "top",
     "opacity",
+    "angle",
+    "width",
+    "height",
+    "scaleX",
+    "scaleY",
   ];
   // Should this be private?
   keyframes: { [key in keyof AnimatableProperties]?: Keyframe<key>[] } = {};
@@ -35,6 +43,12 @@ export class AnimatableObject {
     AnimatableObject.animatableProperties.forEach((property) => {
       const value = this.fabricObject?.get(property);
       if (value === undefined) return;
+      const objectType = this.fabricObject.type;
+
+      if (objectType !== "ellipse" && ["rx", "ry"].includes(property)) {
+        return;
+      }
+
       this.addKeyframe({ easing: "", property, time, value });
     });
   }
@@ -88,6 +102,9 @@ export class AnimatableObject {
       this.fabricObject.set(keyFrameAtIndex.property, newValue);
     }
   }
+  /**
+   *
+   */
   addKeyframe<K extends keyof AnimatableProperties>(keyframe: Omit<Keyframe<K>, "id">) {
     const propertyKeyFrames = this.keyframes[keyframe.property] || [];
     const res = insertIntoArray(keyframe, propertyKeyFrames, "time");
@@ -97,11 +114,13 @@ export class AnimatableObject {
     }
 
     const [insertIndex, shouldReplace] = res;
+    const keyframeId = crypto.randomUUID();
 
     this.keyframes[keyframe.property]?.splice(insertIndex, shouldReplace ? 1 : 0, {
       ...keyframe,
-      id: crypto.randomUUID(),
+      id: keyframeId,
     });
+    return { keyframeId, insertIndex, shouldReplace };
   }
   deleteKeyframe<K extends keyof AnimatableProperties>(property: K, id: string) {
     if (!this.keyframes[property]) return;

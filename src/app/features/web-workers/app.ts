@@ -1,8 +1,8 @@
 import {
   Canvas,
-  Circle,
   config,
   controlsUtils,
+  Ellipse,
   FabricImage,
   FabricObject,
   FabricText,
@@ -26,8 +26,8 @@ export class App {
   private canvas: Canvas;
   /**A record of all fabric object in the canvas */
   private shapeRecord = new Map<string, AnimatableObject>();
-  /**Selected shapes in the canvas */
-  private _selectedShapes: string[] = [];
+  /**ID of selected shapes in the canvas */
+  private _selectedShapes: { id: string; property: Partial<{ left: number; top: number }> }[] = [];
   /**Fabric rect used to clip the canvas */
   private clipRect: Rect;
 
@@ -107,6 +107,7 @@ export class App {
       width,
       height,
       controlsAboveOverlay: true,
+      uniformScaling: false,
     });
 
     this.clipRect = new Rect({
@@ -160,7 +161,8 @@ export class App {
       this.selectedShapes?.forEach((id) => {
         const shape = this.shapeRecord.get(id)?.fabricObject;
         if (!shape) return;
-        const isTextBox = shape.type === "textbox";
+        const shapeType = shape.type;
+        const isTextBox = shapeType === "textbox";
         /* -------------------------------------------------------------------------- */
         // in web worker this is needed to recalculate text wrapping
         if (IS_WEB_WORKER && isTextBox) {
@@ -178,13 +180,27 @@ export class App {
         const newWidth = shape.scaleX * shape.width;
         const newHeight = shape.scaleY * shape.height;
         this.frontEndCallBack?.["object:scaling"]?.(id, newWidth, newHeight);
+
+        addKeyFrame(id, this.time, {
+          width: newWidth,
+          height: newHeight,
+          left: shape.left,
+          top: shape.top,
+          ...(shape instanceof Ellipse
+            ? {
+                rx: shape.scaleX * shape.rx,
+                ry: shape.scaleY * shape.ry,
+              }
+            : {}),
+        });
       });
     });
     this.canvas.on("object:rotating", ({ target }) => {
       this.selectedShapes?.forEach((id) => {
         const shape = this.shapeRecord.get(id)?.fabricObject;
         if (!shape) return;
-        this.frontEndCallBack?.["object:rotating"]?.(id, target.angle);
+        this.frontEndCallBack?.["object:rotating"]?.(id, shape.angle);
+        addKeyFrame(id, this.time, { angle: shape.angle });
       });
     });
     this.canvas.on("object:moving", ({ target }) => {
@@ -208,6 +224,7 @@ export class App {
       this.selectedShapes = ids;
     });
     this.canvas.on("mouse:over", ({ target }) => {
+      if (this.isPlaying) return;
       if (target) {
         const isActive = this.selectedShapes?.includes(target.id || "");
         const isMultipleItemsSelcted = this.selectedShapes.length > 1;
@@ -230,10 +247,19 @@ export class App {
   set selectedShapes(ids: string[]) {
     this.frontEndCallBack?.clearShapeHighlight?.();
     this.frontEndCallBack?.onSelectShape?.(ids);
-    this._selectedShapes = ids;
+    this._selectedShapes = ids.map((i) => {
+      const shape = this.shapeRecord.get(i)?.fabricObject;
+      return {
+        id: i,
+        property: {
+          left: shape?.left,
+          top: shape?.top,
+        },
+      };
+    });
   }
   get selectedShapes() {
-    return this._selectedShapes;
+    return this._selectedShapes.map((i) => i.id);
   }
 
   fitCanvas(width: number, height: number) {
@@ -376,7 +402,7 @@ export class App {
     let shape: FabricObject | null = null;
     const id = crypto.randomUUID();
     const defaultFill = "lightgray";
-    const defaultStroke = "darkgray";
+    const defaultStroke = "black";
 
     switch (args.type) {
       case "text":
@@ -406,10 +432,8 @@ export class App {
             fill: defaultFill,
             width: args.width,
             height: args.height,
-            strokeWidth: 2,
+            strokeWidth: 1,
             stroke: defaultStroke,
-            rx: 0,
-            ry: 0,
             hasControls: true,
           });
           shape = rect;
@@ -417,12 +441,12 @@ export class App {
         break;
       case "circle":
         {
-          shape = new Circle({
-            radius: 65,
+          shape = new Ellipse({
+            rx: 60,
+            ry: 60,
             fill: defaultFill,
-            left: 0,
             stroke: defaultStroke,
-            strokeWidth: 3,
+            strokeWidth: 1,
           });
         }
         break;
@@ -529,11 +553,18 @@ export class App {
     const shape = this.shapeRecord.get(id);
     if (!shape) return;
     Object.entries(keyframe).forEach((args) => {
-      const [key, value] = args as {
+      const [animatableProperty, value] = args as {
         [K in keyof AnimatableProperties]: [K, AnimatableProperties[K]];
       }[keyof AnimatableProperties];
-      shape.addKeyframe({ property: key as keyof AnimatableProperties, time, value, easing: "" });
-      this.frontEndCallBack["keyframe:add"]?.(id, time, key, value);
+      const keyframeDetails = shape.addKeyframe({
+        property: animatableProperty as keyof AnimatableProperties,
+        time,
+        value,
+        easing: "",
+      });
+      if (!keyframeDetails) return;
+
+      this.frontEndCallBack["keyframe:add"]?.(id, time, keyframeDetails, animatableProperty, value);
     });
   }
 
