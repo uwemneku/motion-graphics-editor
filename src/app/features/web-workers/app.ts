@@ -15,9 +15,9 @@ import { IS_WEB_WORKER } from "./globals";
 import type { CreateShapeArgs, FrontendCallback } from "./types";
 
 // Needed handle missing API in worker
-import { addPropertiesToCanvas, debounce, getShapeCoordinates } from "@/app/util/util";
 import type { EditorMode } from "@/types";
 import { proxy } from "comlink";
+import { addPropertiesToCanvas, debounce, getShapeCoordinates } from "../../util";
 import { AnimatableObject, type AnimatableProperties } from "../shapes/animatable-object/object";
 import "./fabric-polyfill";
 
