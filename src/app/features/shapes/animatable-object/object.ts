@@ -1,5 +1,5 @@
-import { insertIntoArray } from "@/app/util/timeline";
 import type { FabricObject } from "fabric";
+import { insertIntoArray } from "../../../util/timeline";
 
 export type AnimatableProperties = {
   left: number;

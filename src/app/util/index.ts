@@ -1,4 +1,4 @@
-import type { FabricObject } from "node_modules/fabric/dist/fabric";
+import type { FabricObject } from "fabric";
 
 export function throttle<G = unknown, T extends Array<G> = G[], Y = unknown>(
   mainFunction: (...a: T) => Y,

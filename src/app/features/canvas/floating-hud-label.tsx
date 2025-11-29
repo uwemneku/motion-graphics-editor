@@ -1,4 +1,4 @@
-import { debounce } from "@/app/util/util";
+import { debounce } from "@/app/util";
 import { proxy } from "comlink";
 import { useEffect, useRef, useState } from "react";
 import type { FrontendCallback } from "../web-workers/types";
