@@ -1,6 +1,20 @@
+import { produce } from "immer";
 import { describe, expect, test } from "vitest";
-import type { KeyFrame } from "../../types";
-import { insertKeyFrameIntoElementTimeline } from "./timeline";
+import { insertIntoArray } from "./timeline";
+type KeyFrame = { timeStamp: number; animatable: object; id: string };
+
+export const insertKeyFrameIntoElementTimeline = (keyFrame: KeyFrame, allKeyFrames: KeyFrame[]) => {
+  const res = insertIntoArray(keyFrame, allKeyFrames, "timeStamp");
+  const i = res?.[0] || 0;
+  const replace = res?.[1] || false;
+
+  return {
+    keyframes: produce(allKeyFrames, (draft) => {
+      draft.splice(i, replace ? 1 : 0, keyFrame);
+    }),
+    insertIndex: i,
+  };
+};
 
 describe("Adding element keyframe", () => {
   const initKeyFrame: KeyFrame[] = [];

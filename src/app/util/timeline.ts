@@ -1,19 +1,3 @@
-import { produce } from "immer";
-import type { KeyFrame } from "../../types";
-
-export const insertKeyFrameIntoElementTimeline = (keyFrame: KeyFrame, allKeyFrames: KeyFrame[]) => {
-  const res = insertIntoArray(keyFrame, allKeyFrames, "timeStamp");
-  const i = res?.[0] || 0;
-  const replace = res?.[1] || false;
-
-  return {
-    keyframes: produce(allKeyFrames, (draft) => {
-      draft.splice(i, replace ? 1 : 0, keyFrame);
-    }),
-    insertIndex: i,
-  };
-};
-
 export function insertIntoArray<
   K extends string,
   Y extends object,
