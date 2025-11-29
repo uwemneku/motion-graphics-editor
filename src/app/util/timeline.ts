@@ -1,56 +1,55 @@
-import { produce } from "immer";
-import type { KeyFrame } from "../../types";
+export function insertIntoArray<
+  K extends string,
+  Y extends object,
+  T extends Y & { [H in K]: number },
+>(item: T, array: T[], sortableKey: K): [number, boolean] | undefined {
+  const insertIndex = 0;
+  const arrayLength = array.length;
 
-export const insertKeyFrameIntoElementTimeline = (
-  keyFrame: KeyFrame,
-  allKeyFrames: KeyFrame[]
-) => {
-  let insertIndex = 0;
-  const totalKeyFrames = allKeyFrames.length;
-  const firstKeyFrame = allKeyFrames[0];
+  const itemSortableKeyValue = item[sortableKey];
+  const firstItem = array?.[0];
+  const firstItemSortableKeyValue = firstItem?.[sortableKey];
 
-  if (
-    totalKeyFrames === 0 ||
-    keyFrame?.timeStamp === firstKeyFrame?.timeStamp
-  ) {
-    return { keyframes: [keyFrame], insertIndex: 0 };
+  if (arrayLength === 0 || itemSortableKeyValue === firstItemSortableKeyValue) {
+    return [insertIndex, true];
   }
 
-  const trackPosition = keyFrame.timeStamp;
-  const lastKeyFrame = allKeyFrames[totalKeyFrames - 1];
-  const elementDuration = lastKeyFrame?.timeStamp - firstKeyFrame?.timeStamp;
+  const isBeforeFirstItem = itemSortableKeyValue < firstItemSortableKeyValue;
+  if (isBeforeFirstItem) {
+    return [insertIndex, false];
+  }
+  const lastItem = array[arrayLength - 1];
+  const lastItemSortableKeyValue = lastItem?.[sortableKey];
+  const isAfterLastItem = itemSortableKeyValue > lastItemSortableKeyValue;
+  if (isAfterLastItem) return [arrayLength, false];
 
-  const isTrackBeforeFirstKeyFrame =
-    !firstKeyFrame ||
-    (firstKeyFrame && trackPosition < firstKeyFrame?.timeStamp);
-  const isTrackAfterLastKeyFrame = trackPosition > lastKeyFrame?.timeStamp;
-  let shouldReplace = false;
+  const position = Math.floor(arrayLength / 2);
+  const itemAtPosition = array?.[position]?.[sortableKey];
 
-  if (isTrackBeforeFirstKeyFrame) {
-    insertIndex = 0;
-  } else if (isTrackAfterLastKeyFrame) {
-    insertIndex = totalKeyFrames;
+  if (itemAtPosition === itemSortableKeyValue) {
+    return [position, true];
+  }
+
+  const itemBeforePosition = array?.[position - 1]?.[sortableKey];
+
+  if (itemAtPosition > itemSortableKeyValue) {
+    if (itemBeforePosition < itemSortableKeyValue) {
+      return [position, false];
+    } else {
+      return insertIntoArray(item, array.slice(0, position), sortableKey);
+    }
   } else {
-    insertIndex = Math.floor(
-      ((trackPosition - firstKeyFrame?.timeStamp) / elementDuration) *
-        (totalKeyFrames - 1)
-    );
-
-    for (let index = insertIndex; index <= insertIndex + 1; index++) {
-      const element = allKeyFrames[index];
-      shouldReplace = element?.timeStamp === trackPosition;
-
-      if (element.timeStamp >= trackPosition) {
-        insertIndex = index;
-        break;
-      }
+    const itemAfterPosition = array?.[position + 1]?.[sortableKey];
+    if (itemAfterPosition > itemSortableKeyValue) {
+      return [position + 1, false];
+    } else {
+      const res = insertIntoArray(item, array.slice(position), sortableKey);
+      return !res ? res : [position + res?.[0] || 0, res?.[1]];
     }
   }
+}
 
-  return {
-    keyframes: produce(allKeyFrames, (draft) => {
-      draft.splice(insertIndex, shouldReplace ? 1 : 0, keyFrame);
-    }),
-    insertIndex,
-  };
+/**Extracts keys whose values are of a certain type */
+export type ExtractKeysOfType<T, Type> = keyof {
+  [K in keyof T as T[K] extends Type ? K : never]: T[K];
 };

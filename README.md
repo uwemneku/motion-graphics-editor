@@ -1,6 +1,49 @@
 # Notes
 
+29/11/2024
+
+- Key frame logic
+- Trying to decide how much data should live in the main thread.
+- Sending Mouse events from main thread to worker works well on most browsers except firefox. It seems like firefox does not throttle mouse events when sent from the main thread to a web worker.
+- Currently carrying out animation based on the framerate that `requestAnimationFrame` allows but this might not be the best approach for procedural video generation.
+- I'll merge the fabric branch to the main branch. I think Fabric.js would be able to achieve most basic functionalities. Maybe would try using three.js to do 2.5d later on to achieve something similar to Moho.
+
+13/11/2024
+
+- Added polyfill in worker to make it possible for fabric.js to control upper-canvas from web worker
+- Tried to do origin aware rotation but was not successful. The api to change a fabric object origin is supposed to be by modifying the `originX` and `originY` property, but they are marked as deprecated. The major challenge here was figuring out the math of the position of a rotated object whose origin has been changed. For now, a simpler solution was setting the origin fo all objects to the center. This made it easier to calculate where to place the blue highlight border when an object is hovered even if said object is rotated.
+- Tried using polyfills to make canvas text editing work from web webworker but that might not be worth it. I found a good use of textArea [here](https://www.framezero.app/edit). I think I should follow this pattern
+- Huge shout to Alessia Cara for the deluxe version of [her new album](https://music.apple.com/ng/album/love-hyperbole-deluxe/1846833534). Great soundtrack for figuring things out and simultaneously thinking, "did she just curse that boy out in track two ?".
+
+10/11/2024
+
+- Improved type definitions for the app to improve communication between worker and main thread
+- Better UI design. (Not sure timeline should always be hidden when we switch to design mode)
+- New timeline logic.
+
+3/11/2024
+
+- After translating objects from a worker, fabricObject.setCoords() needs to be called to update the event hitbox
+
+31/10/2024
+
+- Trying to use fabric JS with offscreen canvas in a worker.
+- With fabric Js, due to the custom polyfill on the worker side to make it work, having a pixel ratio greater than 1 was resizing the canvas instead of increasing canvas quality. The fix was
+
+```ts
+      this.canvas.setDimensions({
+      height: height * devicePixelRatio,
+      width: width * devicePixelRatio,
+    });
+```
+
+When device pixel is greater than one, calculations need to be make to mouse events to ensure they trigger the right events on canvas objects
+
+- Trying out three js and offscreen canvas, tricky part is trying to handle custom transformer.
+
+<hr />
 01/10/24
+- Trying resizing instead of scaling
 
 - Was having issues where videos generated with a worker looked very pixelated, turns out it was because the  [pixelRatio](https://konvajs.org/api/Konva.Canvas.html#getPixelRatio) on the main thread is 2 but on a worker it had a value of 1.
 To get the same quality from the worker thread, I had to set the pixelRatio to two, this made the export process slow but faster than the main thread.

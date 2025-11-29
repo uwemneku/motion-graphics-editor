@@ -1,7 +1,4 @@
-import type Konva from "konva";
-import type { Node } from "konva/lib/Node";
-import type { ShapeConfig } from "konva/lib/Shape";
-
+export type EditorMode = "design" | "animate";
 export interface AnimatableProps {
   x?: number;
   y?: number;
@@ -12,54 +9,23 @@ export interface AnimatableProps {
   fill?: string;
 }
 
-export interface KeyFrame {
-  id: string;
-  timeStamp: number;
-  animatable: AnimatableProps;
-}
-
-export interface TimeLineStore {
-  // keyFrames: KeyFrame[];
-  timeline: gsap.core.Timeline;
-  progress: number;
-  isPaused: boolean;
-  nodes: Record<string, NodeRecord>;
-  selectedKeyFrame?: KeyFrame;
-  selectKeyFrame: (keyFrame: KeyFrame | undefined) => void;
-  aspectRatio: number;
-  setAspectRatio(ratio: number): void;
-  videoDimensions: { width: number; height: number };
-  setVideoDimensions: (d: { width: number; height: number }) => void;
-  nodesIndex: string[];
-  addKeyFrame: (elementId: string, keyFrame: Omit<KeyFrame, "id">) => void;
-
-  selectedNodeId?: string;
-  selectNode: (id: string | undefined) => void;
-  addNode: (node: Konva.Node, id: string) => void;
-  createNode: (...args: CreateNodeArgs) => void;
-  deleteNode: (id: string) => void;
-  removeNode: (id: string) => void;
-  togglePlayBack: (args?: number | "pause") => void;
-}
-
 type NodeArgs = {
   circle: void;
   square: void;
   rectangle: void;
-  image: { src: string };
+  image: { image: string };
   text: void;
+  video: { src: string };
 };
 
-type NodeRecord = {
-  [K in keyof NodeArgs]: {
-    type: K;
-    element?: Node<ShapeConfig>;
-    keyframes?: KeyFrame[];
-    data?: NodeArgs[K] extends void ? object : NodeArgs[K];
-  };
-}[keyof NodeArgs];
+export type NodeRecord = CreateNodeArgs;
 
 export type CreateNodeArgs = {
-  [K in keyof NodeArgs]: NodeArgs[K] extends void ? [K] : [K, NodeArgs[K]];
+  [K in keyof NodeArgs]: {
+    type: K;
+    previewImage?: string;
+    keyframes?: [];
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  } & (NodeArgs[K] extends void ? {} : NodeArgs[K]);
 }[keyof NodeArgs];
 export type NodeType = keyof NodeArgs;
