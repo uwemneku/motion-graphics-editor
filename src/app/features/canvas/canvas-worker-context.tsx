@@ -16,6 +16,8 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
 
   const [hasInitializedWorker, setHasInitializedWorker] = useState(false);
 
+  // Why not highlight shapes using the canvas ?
+  // Because we need the highlight to always be above the shapes. Since we used a clip-rect on the canvas, this becomes a bit difficult to achieve in the canvas when shapes are outside the clip rect
   const highlightShape: FrontendCallback["highlightShape"] = (width, height, top, left, angle) => {
     const PADDING = 10;
 

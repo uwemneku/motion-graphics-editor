@@ -1,13 +1,11 @@
 import type { EditorMode } from "@/types";
 import gsap from "gsap";
 import { useRef, type CSSProperties } from "react";
-import FloatingMenuWrapper from "../components/floating-menu-wrapper";
 import Screen from "../features/canvas";
+import ShapeControls from "../features/controls";
 import LayersSideMenu from "../features/layers";
 import ShapePicker from "../features/shapes/shapes-add-menu";
-import ShapesEditMenu from "../features/shapes/shapes-edit-menu";
 import FloatingTimeline from "../features/timeline/timeline";
-import ExportFeature2 from "../molecules/v2";
 
 const OFFSET = 40;
 const initMode: EditorMode = "animate";
@@ -62,40 +60,37 @@ export default function AppLayout() {
         }
       }}
     >
-      <div className="flex w-full flex-1">
-        <aside className="flex w-full max-w-[200px] flex-col border border-gray-800 bg-white py-2">
-          <div className="flex-[0.2]"></div>
-          <div className="flex-1">
+      <div className="relative flex w-full flex-1">
+        <aside className="absolute top-4 left-4 z-20 flex h-fit min-h-20 w-[200px] flex-col overflow-hidden rounded-2xl border border-gray-300 bg-white">
+          <div className="min-h-[50px] flex-[0.2]"></div>
+          <div className="min-h-[100px] flex-1">
             <LayersSideMenu />
           </div>
         </aside>
         <div className="relative flex h-full flex-1 flex-col">
           <main className="relative flex-1">
             <div className="relative h-full">
-              <FloatingMenuWrapper className="absolute top-3 right-3 z-30">
-                <ExportFeature2 />
-              </FloatingMenuWrapper>
-              <ShapesEditMenu />
               <Screen />
             </div>
           </main>
         </div>
+        <div className="absolute right-0 h-full p-4">
+          <ShapeControls />
+        </div>
       </div>
 
       {/* TIMELINE FOOTER */}
-      <div className="z-20">
-        <div
-          ref={shapesRef}
-          className="absolute bottom-0 left-1/2 z-20 flex -translate-y-(--offset) items-center rounded-xl border-2 border-gray-300 bg-white"
-        >
-          <ShapePicker initiMode={initMode} onModeSwitch={onEditorModeSwithc} />
-        </div>
-        <div
-          className={`p-x-2 drop absolute bottom-0 left-0 z-10 flex max-h-[200px] w-full -translate-y-(--timeline-offset) flex-col border-t border-t-gray-300`}
-          ref={timelineRef}
-        >
-          <FloatingTimeline />
-        </div>
+      <div
+        ref={shapesRef}
+        className="absolute bottom-0 left-1/2 z-50 flex -translate-x-1/2 -translate-y-(--offset) items-center rounded-xl border-2 border-gray-300 bg-white"
+      >
+        <ShapePicker initiMode={initMode} onModeSwitch={onEditorModeSwithc} />
+      </div>
+      <div
+        className={`p-x-2 drop absolute bottom-0 left-0 z-10 z-50 flex max-h-[200px] w-full -translate-y-(--timeline-offset) flex-col border-t border-t-gray-300`}
+        ref={timelineRef}
+      >
+        <FloatingTimeline />
       </div>
     </div>
   );

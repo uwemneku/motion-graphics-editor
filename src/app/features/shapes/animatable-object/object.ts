@@ -88,7 +88,9 @@ export class AnimatableObject {
       if (!res) continue;
       const startIndex = res[0];
       const keyFrameAtIndex = propertyKeyFrames[startIndex];
-      if (res?.[1]) {
+      const shouldReplace = res?.[1];
+      // animate instantly to
+      if (shouldReplace) {
         this.fabricObject.set(keyFrameAtIndex.property, keyFrameAtIndex.value);
         continue;
       }
