@@ -73,10 +73,11 @@ export class AnimatableObject {
         continue;
       }
 
-      const isAfterFirstFrame = lastKeyframe && time > lastKeyframe.time;
-      if (isAfterFirstFrame) {
-        if (lastKeyframe.value !== this.fabricObject.get(key))
+      const isAfterLastFrame = lastKeyframe && time > lastKeyframe.time;
+      if (isAfterLastFrame) {
+        if (lastKeyframe.value !== this.fabricObject.get(key)) {
           this.fabricObject.set(key, lastKeyframe.value);
+        }
         continue;
       }
 
@@ -136,6 +137,11 @@ const Easing = {
   linear(from: number, to: number, progress: number) {
     const delta = to - from;
     return from + delta * Math.min(Math.max(0, progress), 1);
+  },
+  easeInBack(x: number): number {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    return c3 * x * x * x - c1 * x * x;
   },
 };
 

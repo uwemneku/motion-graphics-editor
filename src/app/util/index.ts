@@ -39,9 +39,8 @@ export function debounce<G = unknown, T extends Array<G> = G[], Y = unknown>(
 export function getShapeCoordinates(object: FabricObject) {
   const width = object.width * object.scaleX + (object.strokeWidth || 0);
   const height = object.height * object.scaleY + (object.strokeWidth || 0);
-  const left = object.left;
-  const top = object.top;
-  return { width, height, top, left, angle: object.angle };
+  const { x, y } = object.getPointByOrigin("center", "center");
+  return { width, height, top: y, left: x, angle: object.angle };
 }
 
 /**Adds polyfill properties to lower canvas to make it work in a web worker */

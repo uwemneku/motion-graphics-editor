@@ -138,7 +138,7 @@ function TimelineTimeStampHeader() {
               initDetails.current.scrubStartTime = initDetails.current.time;
             }}
             onDragStart={(e) => e.preventDefault()}
-            className="relative z-20 -translate-x-1/2 cursor-grab rounded-sm bg-blue-400 p-1 px-2 text-[10px] font-semibold active:cursor-grabbing"
+            className="relative z-20 -translate-x-1/2 cursor-grab rounded-sm bg-blue-400 p-1 px-2 text-[10px] font-semibold select-none active:cursor-grabbing"
           >
             <span className="pointer-events-none select-none">
               {timelineCurrentTime.toFixed(2)}s
