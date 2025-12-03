@@ -29,7 +29,7 @@ type TransformEvent = BasicTransformEvent<TPointerEvent> & {
   target: FabricObject;
 };
 
-export class App {
+export class MotionEditor {
   /**Main fabric canvas instance */
   private canvas: Canvas;
   /**A record of all fabric object in the canvas */
@@ -81,9 +81,10 @@ export class App {
     // TODO: remove this as it was only added to test loading fonts
     {
       // Add missing properties to make offscreen canvas work in web worker
+      console.log({ IS_WEB_WORKER });
       if (IS_WEB_WORKER) {
         addPropertiesToCanvas(upperOffscreenCanvas as OffscreenCanvas, width, height);
-        App.upperCanvas = upperOffscreenCanvas as OffscreenCanvas;
+        MotionEditor.upperCanvas = upperOffscreenCanvas as OffscreenCanvas;
         addPropertiesToCanvas(lowerOffscreenCanvas as OffscreenCanvas, width, height);
       }
     }
@@ -337,7 +338,7 @@ export class App {
   ) {
     switch (args[0]) {
       case "getBoundingClientRect":
-        App.getUpperCanvasBoundingClient = args[1];
+        MotionEditor.getUpperCanvasBoundingClient = args[1];
         break;
       case "updateCursor":
         this.canvas.setCursor = args[1];
@@ -400,7 +401,7 @@ export class App {
     if (type === "mousedown") {
       console.log("hello");
     }
-    App.fabricUpperCanvasEventListenersCallback[type]?.(data);
+    MotionEditor.fabricUpperCanvasEventListenersCallback[type]?.(data);
     this.canvas.renderAll();
   }
 
@@ -476,7 +477,7 @@ export class App {
             text.set("dirty", true);
           });
 
-          App.loadFont();
+          MotionEditor.loadFont();
 
           shape = text;
         }

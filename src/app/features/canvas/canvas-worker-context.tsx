@@ -4,7 +4,7 @@ import gsap from "gsap";
 import { useCallback, useEffect, useRef, useState, type PropsWithChildren } from "react";
 import { deleteShape } from "../shapes/slice";
 import { addKeyFrame, setCurrentTime } from "../timeline/slice";
-import { App } from "../web-workers/app";
+import { MotionEditor } from "../web-workers/app";
 import CanvasWorkerProxy from "../web-workers/main-thread-exports";
 import type { FrontendCallback } from "../web-workers/types";
 import { CanvasWorkerContext, type ICanvasWorkerContext } from "./useCanvasContext";
@@ -54,7 +54,7 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
   ) => {
     containerRef.current = options.containerRef;
     const isWebWorkerEnabled = true;
-    const ClassInstance = isWebWorkerEnabled ? CanvasWorkerProxy : App;
+    const ClassInstance = isWebWorkerEnabled ? CanvasWorkerProxy : MotionEditor;
     const getOffscreenCanvas = (node: HTMLCanvasElement) => {
       if (!isWebWorkerEnabled) return node;
       const offscreenCanvas = node.transferControlToOffscreen();

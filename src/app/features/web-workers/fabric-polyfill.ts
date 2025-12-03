@@ -1,4 +1,4 @@
-import { App } from "./app";
+import { MotionEditor } from "./app";
 import { IS_WEB_WORKER } from "./globals";
 
 if (IS_WEB_WORKER) {
@@ -47,7 +47,7 @@ if (IS_WEB_WORKER) {
             }
           }
 
-          const canvas = isUpperCanvasCreated ? new A(100, 100) : App.upperCanvas;
+          const canvas = isUpperCanvasCreated ? new A(100, 100) : MotionEditor.upperCanvas;
           isUpperCanvasCreated = true;
 
           Object.assign(canvas, {
@@ -56,7 +56,7 @@ if (IS_WEB_WORKER) {
             },
 
             getBoundingClientRect: async () => {
-              const res = await App.getUpperCanvasBoundingClient();
+              const res = await MotionEditor.getUpperCanvasBoundingClient();
               return res;
             },
             hasAttribute: () => {},
@@ -68,7 +68,7 @@ if (IS_WEB_WORKER) {
             addEventListener: (type: string, func: (...f: unknown[]) => void, options: object) => {
               if (isUpperCanvas) {
                 // const [type, func = () => {}] = args;
-                App.fabricUpperCanvasEventListenersCallback[type] = (...g) => {
+                MotionEditor.fabricUpperCanvasEventListenersCallback[type] = (...g) => {
                   return func?.(...g);
                 };
               }

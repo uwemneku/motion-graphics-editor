@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
-    "tsc:watch": "tsc -b --watch"
+    "tsc:watch": "tsc -b --watch",
+    "test:browser": "vitest --config=vitest.browser.config.ts"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.10.1",
@@ -40,10 +41,14 @@
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.180.0",
     "@vitejs/plugin-react": "^5.1.1",
+    "@vitest/browser": "^4.0.15",
+    "@vitest/browser-playwright": "^4.0.15",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "happy-dom": "^20.0.11",
+    "jsdom": "^27.2.0",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.6.14",
     "react-scan": "^0.4.3",
@@ -53,6 +58,7 @@
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.2",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "vitest-browser-react": "^2.0.2"
   }
 }

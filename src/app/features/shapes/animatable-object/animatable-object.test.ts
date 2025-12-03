@@ -122,6 +122,6 @@ describe("Animatable object test", () => {
     animatableObject.seek(1);
     expect(animatableObject.fabricObject.get("left")).toBe(485.5);
     animatableObject.seek(4);
-    expect((animatableObject.fabricObject.get("left") as number).toFixed(1)).toBe(430.4);
+    expect((animatableObject.fabricObject.get("left") as number).toFixed(1)).toBe("430.4");
   });
 });

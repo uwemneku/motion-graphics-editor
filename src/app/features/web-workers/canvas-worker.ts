@@ -1,4 +1,4 @@
 import { expose } from "comlink";
-import { App } from "./app";
+import { MotionEditor } from "./app";
 
-expose(App);
+expose(MotionEditor);
