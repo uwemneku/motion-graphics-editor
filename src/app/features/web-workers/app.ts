@@ -191,7 +191,7 @@ export class MotionEditor {
     this.canvas.on("mouse:out", () => {
       this.frontEndCallBack?.clearShapeHighlight?.();
     });
-    initAligningGuidelines(this.canvas, { color: "rgb(81 162 255)" });
+    const res = initAligningGuidelines(this.canvas, { color: "rgb(81 162 255)" });
   }
 
   set selectedShapes(ids: string[]) {
@@ -274,14 +274,20 @@ export class MotionEditor {
 
   private onObjectMove(e: TransformEvent) {
     const keyframes: Parameters<typeof this.addKeyFrame> = [];
-    this.canvas.getActiveObjects().map((i) => {
+    const selectedShapes = this.canvas.getActiveObjects();
+    selectedShapes.map((i, index) => {
       const shapeId = i.id;
       if (!shapeId) return;
-      this.frontEndCallBack?.["object:moving"]?.(shapeId, i.getX(), i.getY());
-      keyframes.push([shapeId, this.time, { left: i.getX(), top: i.getY() }]);
+      // setTimeout callback to give allowance for alignment snapping which might change object position after callback is fired
+      setTimeout(() => {
+        const { x, y } = i.getXY();
+        this.frontEndCallBack?.["object:moving"]?.(shapeId, x, y);
+        keyframes.push([shapeId, this.time, { left: x, top: y }]);
+        if (index === selectedShapes.length - 1) {
+          this.debouncedAddKeyframe(...keyframes);
+        }
+      }, 250);
     });
-
-    this.debouncedAddKeyframe(...keyframes);
   }
 
   private onObjectRotate(e: TransformEvent) {

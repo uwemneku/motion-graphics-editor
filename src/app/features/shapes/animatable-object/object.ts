@@ -76,6 +76,7 @@ export class AnimatableObject {
       const isAfterLastFrame = lastKeyframe && time > lastKeyframe.time;
       if (isAfterLastFrame) {
         if (lastKeyframe.value !== this.fabricObject.get(key)) {
+          console.log(key, lastKeyframe.value, this.fabricObject.get(key));
           this.fabricObject.set(key, lastKeyframe.value);
         }
         continue;
