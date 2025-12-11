@@ -114,7 +114,7 @@ function Screen() {
       <FloatingHUDLabel />
       <div
         data-id="highlight rect"
-        className="pointer-events-none absolute top-[var(--highlight-rect-top)] left-[var(--highlight-rect-left)] z-20 h-[var(--highlight-rect-height)] w-[var(--highlight-rect-width)] rotate-[var(--highlight-rect-angle)] border-2 border-blue-400"
+        className="pointer-events-none absolute top-(--highlight-rect-top) left-(--highlight-rect-left) z-20 h-(--highlight-rect-height) w-(--highlight-rect-width) rotate-(--highlight-rect-angle) border-2 border-blue-400"
         ref={highlightDiv}
       />
 

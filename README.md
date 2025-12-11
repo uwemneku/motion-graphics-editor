@@ -1,5 +1,11 @@
 # Notes
 
+3/12/2024
+
+- Made good progress with custom keyframe/timeline logic but haven't figure out the bug that makes playback look weird. My guess it that the time  iteration might be too much (The logic iterates as fast as the computer can handle). I tried with gsap and it's much better and the movement is very smooth. Made an attempt to include a frame rate (24 fps) to my custom timeline logic but still get a weird playback animation.
+- Good progress with vitest but it seems jsdom does not provide implement the OffscreenCanvas API. Should look at the docs later. I really hope they do, willing to give sacrifices to the Gods to avoid running a test in an actual browser.
+- Might have to give up my initial goal og doing everything from a webworker. Things would be way easier. Maybe.
+
 29/11/2024
 
 - Key frame logic

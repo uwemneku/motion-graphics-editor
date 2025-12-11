@@ -1,4 +1,5 @@
 import {
+  ActiveSelection,
   Canvas,
   config,
   controlsUtils,
@@ -9,19 +10,27 @@ import {
   InteractiveFabricObject,
   Rect,
   Textbox,
+  type BasicTransformEvent,
   type TPointerEvent,
+  type TPointerEventInfo,
 } from "fabric";
+import { initAligningGuidelines } from "fabric/extensions";
 import { IS_WEB_WORKER } from "./globals";
 import type { CreateShapeArgs, FrontendCallback } from "./types";
 
 // Needed handle missing API in worker
 import type { EditorMode } from "@/types";
 import { proxy } from "comlink";
+import gsap from "gsap";
 import { addPropertiesToCanvas, debounce, getShapeCoordinates } from "../../util";
 import { AnimatableObject, type AnimatableProperties } from "../shapes/animatable-object/object";
 import "./fabric-polyfill";
 
-export class App {
+type TransformEvent = BasicTransformEvent<TPointerEvent> & {
+  target: FabricObject;
+};
+
+export class MotionEditor {
   /**Main fabric canvas instance */
   private canvas: Canvas;
   /**A record of all fabric object in the canvas */
@@ -33,8 +42,11 @@ export class App {
 
   /**Stores callback from the main thread */
   private frontEndCallBack: Partial<FrontendCallback> = {};
-  private animationFrameCallbackId = 0;
+  private callBackIds = { animationFrameCallbackId: 0 };
+  private reselectShape: (() => void) | undefined = undefined;
   private lastTime: number | null = performance.now();
+  private timeline = gsap.timeline({ paused: true });
+  private debouncedAddKeyframe: typeof this.addKeyFrame;
 
   /* -------------------------------------------------------------------------- */
   // These static properties should only be used in web workers for polyfills to make fabric work from a webworker
@@ -70,13 +82,14 @@ export class App {
     // TODO: remove this as it was only added to test loading fonts
     {
       // Add missing properties to make offscreen canvas work in web worker
+      console.log({ IS_WEB_WORKER });
       if (IS_WEB_WORKER) {
         addPropertiesToCanvas(upperOffscreenCanvas as OffscreenCanvas, width, height);
-        App.upperCanvas = upperOffscreenCanvas as OffscreenCanvas;
+        MotionEditor.upperCanvas = upperOffscreenCanvas as OffscreenCanvas;
         addPropertiesToCanvas(lowerOffscreenCanvas as OffscreenCanvas, width, height);
       }
     }
-
+    this.timeline.to({}, { duration: 10 });
     // Default fabric object configurations
     config.configure({ devicePixelRatio });
     const controls = controlsUtils.createObjectDefaultControls();
@@ -86,6 +99,8 @@ export class App {
     controls.mt.sizeX = controls.mb.sizeX = 20;
 
     // Styles default controls
+    InteractiveFabricObject.ownDefaults.originX = "center";
+    InteractiveFabricObject.ownDefaults.originY = "center";
     InteractiveFabricObject.ownDefaults.strokeUniform = true;
     InteractiveFabricObject.ownDefaults = {
       ...InteractiveFabricObject.ownDefaults,
@@ -127,7 +142,7 @@ export class App {
     this.clipRect.width = this.canvas.width * 0.6;
     this.clipRect.height = this.canvas.height * 0.6;
     this.canvas.centerObject(this.clipRect);
-    this.clipRect.top = this.clipRect.top * 0.5;
+    this.clipRect.top = this.clipRect.top * 0.8;
     this.clipRect.lockMovementX = true;
     this.clipRect.lockMovementY = true;
     this.clipRect.lockRotation = true;
@@ -139,7 +154,7 @@ export class App {
     this.fitCanvas(width, height);
 
     /* -------------------------------------------------------------------------- */
-    const addKeyFrame = debounce(this.addKeyFrame.bind(this), 100).bind(this);
+    this.debouncedAddKeyframe = debounce(this.addKeyFrame.bind(this), 100).bind(this);
     /* -------------------------------------------------------------------------- */
     /* -------------------------------------------------------------------------- */
 
@@ -148,69 +163,20 @@ export class App {
     /* -------------------------------------------------------------------------- */
     // Canvas event listeners
     /* -------------------------------------------------------------------------- */
+    this.canvas.on("object:scaling", this.onObjectScale.bind(this));
+    this.canvas.on("object:moving", this.onObjectMove.bind(this));
+    this.canvas.on("object:rotating", this.onObjectRotate.bind(this));
+    this.canvas.on("mouse:over", this.onObjectMouseOver.bind(this));
+
     this.canvas.on("mouse:dblclick", ({ target, subTargets }) => {
       if (target?.type === "text") {
         const _target = target as FabricText;
         const text = _target.text;
         const textAlign = _target.textAlign;
         const fontSize = _target.CACHE_FONT_SIZE;
-        console.log({ text, textAlign, fontSize, target });
       }
     });
-    this.canvas.on("object:scaling", (e) => {
-      this.selectedShapes?.forEach((id) => {
-        const shape = this.shapeRecord.get(id)?.fabricObject;
-        if (!shape) return;
-        const shapeType = shape.type;
-        const isTextBox = shapeType === "textbox";
-        /* -------------------------------------------------------------------------- */
-        // in web worker this is needed to recalculate text wrapping
-        if (IS_WEB_WORKER && isTextBox) {
-          const _shape = shape as Textbox;
-          _shape.width = _shape.scaleX * _shape.width;
-          _shape.height = _shape.scaleY * _shape.height;
-          _shape.scaleX = 1;
-          _shape.scaleY = 1;
-          _shape.initialized = true;
-          _shape.initDimensions();
-          _shape.dirty = true;
-        }
-        /* -------------------------------------------------------------------------- */
 
-        const newWidth = shape.scaleX * shape.width;
-        const newHeight = shape.scaleY * shape.height;
-        this.frontEndCallBack?.["object:scaling"]?.(id, newWidth, newHeight);
-
-        addKeyFrame(id, this.time, {
-          width: newWidth,
-          height: newHeight,
-          left: shape.left,
-          top: shape.top,
-          ...(shape instanceof Ellipse
-            ? {
-                rx: shape.scaleX * shape.rx,
-                ry: shape.scaleY * shape.ry,
-              }
-            : {}),
-        });
-      });
-    });
-    this.canvas.on("object:rotating", ({ target }) => {
-      this.selectedShapes?.forEach((id) => {
-        const shape = this.shapeRecord.get(id)?.fabricObject;
-        if (!shape) return;
-        this.frontEndCallBack?.["object:rotating"]?.(id, shape.angle);
-        addKeyFrame(id, this.time, { angle: shape.angle });
-      });
-    });
-    this.canvas.on("object:moving", ({ target }) => {
-      this.selectedShapes?.forEach((id) => {
-        const shape = this.shapeRecord.get(id)?.fabricObject;
-        if (!shape) return;
-        this.frontEndCallBack?.["object:moving"]?.(id, shape.left, shape.top);
-        addKeyFrame(id, this.time, { left: shape.left, top: shape.top });
-      });
-    });
     this.canvas.on("selection:created", () => {
       const ids = this.getActiveObjectsId();
       this.selectedShapes = ids;
@@ -223,25 +189,10 @@ export class App {
       const ids = this.getActiveObjectsId();
       this.selectedShapes = ids;
     });
-    this.canvas.on("mouse:over", ({ target }) => {
-      if (this.isPlaying) return;
-      if (target) {
-        const isActive = this.selectedShapes?.includes(target.id || "");
-        const isMultipleItemsSelcted = this.selectedShapes.length > 1;
-        if (isActive || isMultipleItemsSelcted) return;
-        const coordinates = getShapeCoordinates(target);
-        this.frontEndCallBack?.highlightShape?.(
-          coordinates.width,
-          coordinates.height,
-          coordinates.top,
-          coordinates.left,
-          coordinates.angle,
-        );
-      }
-    });
     this.canvas.on("mouse:out", () => {
       this.frontEndCallBack?.clearShapeHighlight?.();
     });
+    const res = initAligningGuidelines(this.canvas, { color: "rgb(81 162 255)" });
   }
 
   set selectedShapes(ids: string[]) {
@@ -276,6 +227,117 @@ export class App {
     this.render();
   }
 
+  private onObjectScale(e: TransformEvent) {
+    const keyframes: Parameters<typeof this.addKeyFrame> = [];
+    this.selectedShapes?.forEach((id) => {
+      const shape = this.shapeRecord.get(id)?.fabricObject;
+      if (!shape) return;
+      const shapeType = shape.type;
+      const isTextBox = shapeType === "textbox";
+      /* -------------------------------------------------------------------------- */
+      // in web worker this is needed to recalculate text wrapping
+      if (IS_WEB_WORKER && isTextBox) {
+        const _shape = shape as Textbox;
+        _shape.width = _shape.scaleX * _shape.width;
+        _shape.height = _shape.scaleY * _shape.height;
+        _shape.scaleX = 1;
+        _shape.scaleY = 1;
+        _shape.initialized = true;
+        _shape.initDimensions();
+        _shape.dirty = true;
+      }
+      /* -------------------------------------------------------------------------- */
+
+      const newWidth = shape.scaleX * shape.width;
+      const newHeight = shape.scaleY * shape.height;
+      this.frontEndCallBack?.["object:scaling"]?.(id, newWidth, newHeight);
+      console.log(newWidth);
+
+      keyframes.push([
+        id,
+        this.time,
+        {
+          width: newWidth,
+          height: newHeight,
+          left: shape.getX(),
+          top: shape.getY(),
+          ...(shape instanceof Ellipse
+            ? {
+                rx: shape.scaleX * shape.rx,
+                ry: shape.scaleY * shape.ry,
+              }
+            : {}),
+        },
+      ]);
+    });
+    this.debouncedAddKeyframe(...keyframes);
+  }
+
+  private onObjectMove(e: TransformEvent) {
+    const keyframes: Parameters<typeof this.addKeyFrame> = [];
+    const selectedShapes = this.canvas.getActiveObjects();
+    selectedShapes.map((i, index) => {
+      const shapeId = i.id;
+      if (!shapeId) return;
+      // setTimeout callback to give allowance for alignment snapping which might change object position after callback is fired
+      setTimeout(() => {
+        const { x, y } = i.getXY();
+        this.frontEndCallBack?.["object:moving"]?.(shapeId, x, y);
+        keyframes.push([shapeId, this.time, { left: x, top: y }]);
+        if (index === selectedShapes.length - 1) {
+          this.debouncedAddKeyframe(...keyframes);
+        }
+      }, 250);
+    });
+  }
+
+  private onObjectRotate(e: TransformEvent) {
+    let objects: FabricObject[] = [];
+    console.log(e);
+    if ("_objects" in e.target) {
+      objects = e.target._objects as FabricObject[];
+    } else {
+      objects = [e.target];
+    }
+
+    this.frontEndCallBack?.["object:rotating"]?.("", e.target.getTotalAngle());
+
+    const keyframes: Parameters<typeof this.addKeyFrame> = [];
+    objects?.forEach((shape) => {
+      const shapeId = shape.id;
+      if (!shapeId) return;
+      let additionalProperties: Partial<AnimatableProperties> = {};
+      // For group selection, rotating will chnage the x and y position of object
+      if (this.selectedShapes.length > 1) {
+        const { x, y } = shape.getXY();
+        additionalProperties = { left: x, top: y };
+      }
+
+      keyframes.push([shapeId, this.time, { angle: e.target.angle, ...additionalProperties }]);
+    });
+
+    this.debouncedAddKeyframe(...keyframes);
+  }
+
+  private onObjectMouseOver(e: TPointerEventInfo<TPointerEvent>) {
+    if (this.isPlaying) return;
+    if (e.target) {
+      const isActive = this.selectedShapes?.includes(e.target.id || "");
+      console.log({ a: this.selectedShapes, t: e.target });
+
+      const isMultipleItemsSelcted = this.selectedShapes.length > 1;
+      if (isActive || isMultipleItemsSelcted) return;
+      const coordinates = getShapeCoordinates(e.target);
+      this.frontEndCallBack?.highlightShape?.(
+        coordinates.width,
+        coordinates.height,
+        coordinates.top,
+        coordinates.left,
+        coordinates.angle,
+      );
+    }
+  }
+
   addEventListener(
     ...args: {
       [key in keyof Required<FrontendCallback>]: [key, FrontendCallback[key]];
@@ -283,7 +345,7 @@ export class App {
   ) {
     switch (args[0]) {
       case "getBoundingClientRect":
-        App.getUpperCanvasBoundingClient = args[1];
+        MotionEditor.getUpperCanvasBoundingClient = args[1];
         break;
       case "updateCursor":
         this.canvas.setCursor = args[1];
@@ -343,7 +405,10 @@ export class App {
       this.canvas._onMouseUp(data);
       return;
     }
-    App.fabricUpperCanvasEventListenersCallback[type]?.(data);
+    if (type === "mousedown") {
+      console.log("hello");
+    }
+    MotionEditor.fabricUpperCanvasEventListenersCallback[type]?.(data);
     this.canvas.renderAll();
   }
 
@@ -401,7 +466,7 @@ export class App {
   async createShape(args: CreateShapeArgs) {
     let shape: FabricObject | null = null;
     const id = crypto.randomUUID();
-    const defaultFill = "lightgray";
+    const defaultFill = "skyblue";
     const defaultStroke = "black";
 
     switch (args.type) {
@@ -419,7 +484,7 @@ export class App {
             text.set("dirty", true);
           });
 
-          App.loadFont();
+          MotionEditor.loadFont();
 
           shape = text;
         }
@@ -465,8 +530,8 @@ export class App {
     if (shape) {
       shape.id = id;
       shape.set({
-        originX: 0.5, // or 'right', 'center', numeric value too
-        originY: 0.5, // or 'bottom', 'center', numeric value too
+        originX: "center", // or 'right', 'center', numeric value too
+        originY: "center", // or 'bottom', 'center', numeric value too
       });
 
       this.canvas.centerObject(shape);
@@ -487,7 +552,6 @@ export class App {
 
   selectShape(id: string) {
     const shape = this.shapeRecord.get(id)?.fabricObject;
-    console.log(id);
     if (shape) {
       this.canvas.setActiveObject(shape);
       this.canvas.renderAll();
@@ -546,43 +610,83 @@ export class App {
       return await URL.createObjectURL(b);
     }
   }
+
+  highlightShape(shape: string | FabricObject) {
+    let _shape: FabricObject | undefined;
+
+    if (typeof shape == "string") {
+      const fabricObject = this.shapeRecord.get(shape)?.fabricObject;
+      if (fabricObject) {
+        _shape = fabricObject;
+      }
+    } else {
+      _shape = shape;
+    }
+
+    if (!_shape || (_shape.id && this.selectedShapes.includes(_shape.id))) return;
+
+    const coordinates = getShapeCoordinates(_shape);
+    this.frontEndCallBack?.highlightShape?.(
+      coordinates.width,
+      coordinates.height,
+      coordinates.top,
+      coordinates.left,
+      coordinates.angle,
+    );
+  }
   /* -------------------------------------------------------------------------- */
   // Animation functions
   /* -------------------------------------------------------------------------- */
-  private addKeyFrame(id: string, time: number, keyframe: Partial<AnimatableProperties>) {
-    const shape = this.shapeRecord.get(id);
-    if (!shape) return;
-    Object.entries(keyframe).forEach((args) => {
-      const [animatableProperty, value] = args as {
-        [K in keyof AnimatableProperties]: [K, AnimatableProperties[K]];
-      }[keyof AnimatableProperties];
-      const keyframeDetails = shape.addKeyframe({
-        property: animatableProperty as keyof AnimatableProperties,
-        time,
-        value,
-        easing: "",
-      });
-      if (!keyframeDetails) return;
+  private addKeyFrame(
+    ...args: [shapeId: string, time: number, keyframe: Partial<AnimatableProperties>][]
+  ) {
+    args.forEach((keyframeData) => {
+      const [shapeId, time, keyframe] = keyframeData;
+      const shape = this.shapeRecord.get(shapeId);
+      if (!shape) return;
 
-      this.frontEndCallBack["keyframe:add"]?.(id, time, keyframeDetails, animatableProperty, value);
+      Object.entries(keyframe).forEach((args) => {
+        const [animatableProperty, value] = args as {
+          [K in keyof AnimatableProperties]: [K, AnimatableProperties[K]];
+        }[keyof AnimatableProperties];
+        const keyframeDetails = shape.addKeyframe({
+          property: animatableProperty as keyof AnimatableProperties,
+          time,
+          value,
+          easing: "",
+        });
+        if (!keyframeDetails) return;
+
+        this.frontEndCallBack["keyframe:add"]?.(
+          shapeId,
+          time,
+          keyframeDetails,
+          animatableProperty,
+          value,
+        );
+      });
     });
   }
 
   onMouseUp() {}
-  play() {
+  async play() {
     this.isPlaying = true;
     this.lastTime = performance.now();
     requestAnimationFrame(this.startPlayingLoop.bind(this));
   }
-  startPlayingLoop(timestamp: number) {
+  startPlayingLoop(now: number) {
     if (!this.isPlaying) return;
 
+    this.callBackIds.animationFrameCallbackId = requestAnimationFrame(
+      this.startPlayingLoop.bind(this),
+    );
+
     if (this.lastTime == null) {
-      this.lastTime = timestamp;
+      this.lastTime = now;
     }
 
-    const dt = (timestamp - this.lastTime) / 1000;
-    this.lastTime = timestamp;
+    const dt = (now - this.lastTime) / 1000;
+    this.lastTime = now;
 
     this.time += dt;
 
@@ -592,18 +696,28 @@ export class App {
     if (this.time >= 10) {
       this.time = 0;
     }
-
-    this.animationFrameCallbackId = requestAnimationFrame(this.startPlayingLoop.bind(this));
   }
   pause() {
     this.isPlaying = false;
-    cancelAnimationFrame(this.animationFrameCallbackId);
+    cancelAnimationFrame(this.callBackIds.animationFrameCallbackId);
     this.lastTime = null;
-    this.shapeRecord.forEach((value) => {
-      value.fabricObject.setCoords();
-    });
+    this.reselectShape?.();
   }
   seek(time: number) {
+    const selectedShape = this.canvas.getActiveObjects();
+
+    if (selectedShape.length > 0) {
+      this.canvas.discardActiveObject();
+      this.reselectShape = () => {
+        const selection = new ActiveSelection([], { canvas: this.canvas });
+        selection.multiSelectAdd(...selectedShape);
+        this.canvas._hoveredTarget = selection;
+        this.canvas.setActiveObject(selection);
+        this.canvas.getActiveObjects().forEach((e) => e.setCoords());
+        this.render();
+        this.reselectShape = undefined;
+      };
+    }
     const _time = Math.min(this.totalDuration, Math.max(0, time));
     this.shapeRecord.forEach((shape) => {
       shape.seek(_time);
@@ -612,8 +726,8 @@ export class App {
       this.time = _time;
       this.shapeRecord.forEach((value) => {
         value.fabricObject.setCoords();
-        console.log("updated");
       });
+      this.reselectShape?.();
     }
     this.canvas.renderAll();
   }

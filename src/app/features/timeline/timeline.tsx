@@ -63,7 +63,9 @@ function TimelineTimeStampHeader() {
     if (!isMouseDown.current) return;
     isMouseDown.current = false;
   }, []);
-  const movePlayhead = (time: number) => {
+  const movePlayhead = async (time: number) => {
+    const _time = await canvasContext.app?.time;
+    if (time === _time) return;
     trackDiv.current?.style.setProperty("transition", "left 0.5s");
     canvasContext.seekTimeLine(time);
   };
@@ -80,7 +82,7 @@ function TimelineTimeStampHeader() {
     [canvasContext],
   );
 
-  const handleClick = (e: Pick<MouseEvent, "clientX" | "target" | "currentTarget">) => {
+  const handleClick = async (e: Pick<MouseEvent, "clientX" | "target" | "currentTarget">) => {
     const target = e.target as HTMLElement;
     const isTimeStamp = target?.hasAttribute("data-timestamp");
 
@@ -138,7 +140,7 @@ function TimelineTimeStampHeader() {
               initDetails.current.scrubStartTime = initDetails.current.time;
             }}
             onDragStart={(e) => e.preventDefault()}
-            className="relative z-20 -translate-x-1/2 cursor-grab rounded-sm bg-blue-400 p-1 px-2 text-[10px] font-semibold active:cursor-grabbing"
+            className="relative z-20 -translate-x-1/2 cursor-grab rounded-sm bg-blue-400 p-1 px-2 text-[10px] font-semibold select-none active:cursor-grabbing"
           >
             <span className="pointer-events-none select-none">
               {timelineCurrentTime.toFixed(2)}s

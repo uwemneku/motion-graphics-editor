@@ -32,15 +32,7 @@ function ShapeDetails(props: { id: string }) {
       className="flex items-center gap-3 border-b border-b-gray-300 p-2 select-none hover:bg-gray-400"
       onClick={() => canvasContext.app?.selectShape(props.id)}
       onMouseOver={async (e) => {
-        const coordinates = await canvasContext.app?.getShapeCoordinatesByID(props.id);
-        if (coordinates)
-          canvasContext.highlightShape(
-            coordinates?.width,
-            coordinates?.height,
-            coordinates?.top,
-            coordinates?.left,
-            coordinates.angle,
-          );
+        canvasContext.app?.highlightShape(props.id);
       }}
       onMouseOut={canvasContext.clearShapeHighlight}
     >

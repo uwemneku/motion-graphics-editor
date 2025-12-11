@@ -1,12 +1,12 @@
-export function insertIntoArray<
-  K extends string,
-  Y extends object,
-  T extends Y & { [H in K]: number },
->(item: T, array: T[], sortableKey: K): [number, boolean] | undefined {
+export function findInsertIndex<T extends object, Key extends ExtractKeysOfType<T, number>>(
+  value: number,
+  array: T[],
+  sortableKey: Key,
+): [number, boolean] | undefined {
   const insertIndex = 0;
   const arrayLength = array.length;
 
-  const itemSortableKeyValue = item[sortableKey];
+  const itemSortableKeyValue = value as T[Key];
   const firstItem = array?.[0];
   const firstItemSortableKeyValue = firstItem?.[sortableKey];
 
@@ -36,14 +36,14 @@ export function insertIntoArray<
     if (itemBeforePosition < itemSortableKeyValue) {
       return [position, false];
     } else {
-      return insertIntoArray(item, array.slice(0, position), sortableKey);
+      return findInsertIndex(value, array.slice(0, position), sortableKey);
     }
   } else {
     const itemAfterPosition = array?.[position + 1]?.[sortableKey];
     if (itemAfterPosition > itemSortableKeyValue) {
       return [position + 1, false];
     } else {
-      const res = insertIntoArray(item, array.slice(position), sortableKey);
+      const res = findInsertIndex(value, array.slice(position), sortableKey);
       return !res ? res : [position + res?.[0] || 0, res?.[1]];
     }
   }

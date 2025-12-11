@@ -1,7 +1,7 @@
 import { wrap, type Remote } from "comlink";
-import type { App } from "./app";
+import type { MotionEditor } from "./app";
 import offscreenWorker from "./canvas-worker?worker";
 const workerInstance = new offscreenWorker();
-const CanvasWorkerProxy = wrap<Remote<App>>(workerInstance);
+const CanvasWorkerProxy = wrap<Remote<MotionEditor>>(workerInstance);
 
 export default CanvasWorkerProxy;
