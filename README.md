@@ -1,5 +1,12 @@
 # Notes
 
+11/12/2024
+
+- Improved custom timeline logic.
+  - Added custom easing function gotten from <https://easings.net/>
+  - Following the sample [code here](https://stackoverflow.com/questions/19764018/controlling-fps-with-requestanimationframe), moved the recursion call of requestAnimationFrame to the top of the loop function and I think that improved the playback.
+  - I need to figure out a way to better throttle the timeline onUpdate callback which informs the frontend when the timeline playhead moves. On slow devices this lags greatly
+
 3/12/2024
 
 - Made good progress with custom keyframe/timeline logic but haven't figure out the bug that makes playback look weird. My guess it that the time  iteration might be too much (The logic iterates as fast as the computer can handle). I tried with gsap and it's much better and the movement is very smooth. Made an attempt to include a frame rate (24 fps) to my custom timeline logic but still get a weird playback animation.
