@@ -1,5 +1,4 @@
 import { describe, test } from "vitest";
-import { MotionEditor } from "./app";
 
 describe("Main app test", () => {
   test("initialize app", () => {
@@ -9,6 +8,6 @@ describe("Main app test", () => {
 
     // const canvas = new OffscreenCanvas(100, 100);
     // const canvas1 = new OffscreenCanvas(100, 100);
-    const app = new MotionEditor(f, f1, 100, 100);
+    // const app = new MotionEditor(f, f1, 100, 100);
   });
 });

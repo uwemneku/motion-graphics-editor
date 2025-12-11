@@ -54,8 +54,9 @@ describe("Animatable object test", () => {
     expect(parseFloat(rect.get("scaleX")).toFixed(1)).toBe("1.2");
   });
 
-  test("Object animation", () => {
-    animatableObject.keyframes = {
+  test("Object animation with seek function", () => {
+    const animatableObject1 = new AnimatableObject(rect);
+    animatableObject1.keyframes = {
       left: [
         {
           easing: "",
@@ -119,9 +120,9 @@ describe("Animatable object test", () => {
       ],
     };
 
-    animatableObject.seek(1);
-    expect(animatableObject.fabricObject.get("left")).toBe(485.5);
-    animatableObject.seek(4);
-    expect((animatableObject.fabricObject.get("left") as number).toFixed(1)).toBe("430.4");
+    animatableObject1.seek(1, true);
+    expect(animatableObject1.fabricObject.get("left")).toBe(485.5);
+    animatableObject1.seek(4, true);
+    expect((animatableObject1.fabricObject.get("left") as number).toFixed(1)).toBe("430.4");
   });
 });

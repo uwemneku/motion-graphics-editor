@@ -63,7 +63,9 @@ function TimelineTimeStampHeader() {
     if (!isMouseDown.current) return;
     isMouseDown.current = false;
   }, []);
-  const movePlayhead = (time: number) => {
+  const movePlayhead = async (time: number) => {
+    const _time = await canvasContext.app?.time;
+    if (time === _time) return;
     trackDiv.current?.style.setProperty("transition", "left 0.5s");
     canvasContext.seekTimeLine(time);
   };
@@ -80,7 +82,7 @@ function TimelineTimeStampHeader() {
     [canvasContext],
   );
 
-  const handleClick = (e: Pick<MouseEvent, "clientX" | "target" | "currentTarget">) => {
+  const handleClick = async (e: Pick<MouseEvent, "clientX" | "target" | "currentTarget">) => {
     const target = e.target as HTMLElement;
     const isTimeStamp = target?.hasAttribute("data-timestamp");
 

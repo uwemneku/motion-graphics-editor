@@ -21,6 +21,7 @@ import type { CreateShapeArgs, FrontendCallback } from "./types";
 // Needed handle missing API in worker
 import type { EditorMode } from "@/types";
 import { proxy } from "comlink";
+import gsap from "gsap";
 import { addPropertiesToCanvas, debounce, getShapeCoordinates } from "../../util";
 import { AnimatableObject, type AnimatableProperties } from "../shapes/animatable-object/object";
 import "./fabric-polyfill";
@@ -44,7 +45,7 @@ export class MotionEditor {
   private callBackIds = { animationFrameCallbackId: 0 };
   private reselectShape: (() => void) | undefined = undefined;
   private lastTime: number | null = performance.now();
-  // private timeline = gsap.timeline({ paused: true });
+  private timeline = gsap.timeline({ paused: true });
   private debouncedAddKeyframe: typeof this.addKeyFrame;
 
   /* -------------------------------------------------------------------------- */
@@ -88,7 +89,7 @@ export class MotionEditor {
         addPropertiesToCanvas(lowerOffscreenCanvas as OffscreenCanvas, width, height);
       }
     }
-
+    this.timeline.to({}, { duration: 10 });
     // Default fabric object configurations
     config.configure({ devicePixelRatio });
     const controls = controlsUtils.createObjectDefaultControls();
@@ -465,7 +466,7 @@ export class MotionEditor {
   async createShape(args: CreateShapeArgs) {
     let shape: FabricObject | null = null;
     const id = crypto.randomUUID();
-    const defaultFill = "lightgray";
+    const defaultFill = "skyblue";
     const defaultStroke = "black";
 
     switch (args.type) {
@@ -668,21 +669,24 @@ export class MotionEditor {
   }
 
   onMouseUp() {}
-  play() {
+  async play() {
     this.isPlaying = true;
     this.lastTime = performance.now();
     requestAnimationFrame(this.startPlayingLoop.bind(this));
-    // this.timeline.play();
   }
-  startPlayingLoop(timestamp: number) {
+  startPlayingLoop(now: number) {
     if (!this.isPlaying) return;
 
+    this.callBackIds.animationFrameCallbackId = requestAnimationFrame(
+      this.startPlayingLoop.bind(this),
+    );
+
     if (this.lastTime == null) {
-      this.lastTime = timestamp;
+      this.lastTime = now;
     }
 
-    const dt = (timestamp - this.lastTime) / 1000;
-    this.lastTime = timestamp;
+    const dt = (now - this.lastTime) / 1000;
+    this.lastTime = now;
 
     this.time += dt;
 
@@ -692,10 +696,6 @@ export class MotionEditor {
     if (this.time >= 10) {
       this.time = 0;
     }
-
-    this.callBackIds.animationFrameCallbackId = requestAnimationFrame(
-      this.startPlayingLoop.bind(this),
-    );
   }
   pause() {
     this.isPlaying = false;
