@@ -16,12 +16,11 @@ import {
 } from "fabric";
 import { initAligningGuidelines } from "fabric/extensions";
 import { IS_WEB_WORKER } from "./globals";
-import type { CreateShapeArgs, FrontendCallback } from "./types";
+import type { CreateShapeArgs, FrontendCallback, MainThreadFunctions } from "./types";
 
 // Needed handle missing API in worker
 import type { EditorMode } from "@/types";
 import { proxy } from "comlink";
-import gsap from "gsap";
 import { addPropertiesToCanvas, debounce, getShapeCoordinates } from "../../util";
 import { AnimatableObject, type AnimatableProperties } from "../shapes/animatable-object/object";
 import "./fabric-polyfill";
@@ -40,14 +39,23 @@ export class MotionEditor {
   /**Fabric rect used to clip the canvas */
   private clipRect: Rect;
 
-  /**Stores callback from the main thread */
+  /**Stores callback from the main thread for when actions happens in the worker*/
   private frontEndCallBack: Partial<FrontendCallback> = {};
-  private callBackIds = { animationFrameCallbackId: 0 };
+  #frontendFunctions: Partial<{
+    [key in keyof MainThreadFunctions]: (
+      ...args: Parameters<MainThreadFunctions[key]>
+    ) => Promise<ReturnType<MainThreadFunctions[key]>>;
+  }> = {};
+  /**The minimum time after which the frontend "timeline:update" callback is called */
+  #nextFrontendTickTime = 0;
+  /**The average time ti takes for the frontend to receive and render timeline update */
+  #frontendTickDelay?: number;
+
   private reselectShape: (() => void) | undefined = undefined;
-  private lastTime: number | null = performance.now();
-  private timeline = gsap.timeline({ paused: true });
   private debouncedAddKeyframe: typeof this.addKeyFrame;
 
+  /* -------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------- */
   /* -------------------------------------------------------------------------- */
   // These static properties should only be used in web workers for polyfills to make fabric work from a webworker
   /* -------------------------------------------------------------------------- */
@@ -59,12 +67,15 @@ export class MotionEditor {
 
   /* -------------------------------------------------------------------------- */
   /* -------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------- */
 
-  mainThreadTime = 0;
   mode: EditorMode = "animate";
-  isPlaying: boolean = false;
-  time = 0;
   totalDuration = 10;
+  timeline = new Timeline(10, false);
+
+  /* -------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------- */
 
   constructor(
     /**
@@ -82,14 +93,13 @@ export class MotionEditor {
     // TODO: remove this as it was only added to test loading fonts
     {
       // Add missing properties to make offscreen canvas work in web worker
-      console.log({ IS_WEB_WORKER });
+      console.info({ IS_WEB_WORKER });
       if (IS_WEB_WORKER) {
         addPropertiesToCanvas(upperOffscreenCanvas as OffscreenCanvas, width, height);
         MotionEditor.upperCanvas = upperOffscreenCanvas as OffscreenCanvas;
         addPropertiesToCanvas(lowerOffscreenCanvas as OffscreenCanvas, width, height);
       }
     }
-    this.timeline.to({}, { duration: 10 });
     // Default fabric object configurations
     config.configure({ devicePixelRatio });
     const controls = controlsUtils.createObjectDefaultControls();
@@ -192,7 +202,64 @@ export class MotionEditor {
     this.canvas.on("mouse:out", () => {
       this.frontEndCallBack?.clearShapeHighlight?.();
     });
-    const res = initAligningGuidelines(this.canvas, { color: "rgb(81 162 255)" });
+
+    /* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
+    initAligningGuidelines(this.canvas, { color: "rgb(81 162 255)" });
+    /* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
+
+    /* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
+    const COUNT = 20;
+    const frontendTickDelayArray: number[] = [];
+    let sent = 0;
+
+    this.timeline.addEventListener("onUpdate", async (time) => {
+      this.seekShapes(time);
+      console.log({ worker: time });
+
+      // only notify frontend if tickDelay
+      const hasCalculatedAverageDelay = this.#frontendTickDelay !== undefined;
+      const shouldNotifyFrontend = hasCalculatedAverageDelay && time < this.#nextFrontendTickTime;
+      // if (time >= this.timeline.duration || this.#nextFrontendTickTime >= this.timeline.duration) {
+      //   this.#nextFrontendTickTime = 0;
+      // }
+
+      if (!hasCalculatedAverageDelay && frontendTickDelayArray.length === COUNT) {
+        const average =
+          frontendTickDelayArray.reduce((prev, acc) => prev + acc, 0) /
+          frontendTickDelayArray.length;
+        this.#frontendTickDelay = average * 0.5;
+        sent = 0;
+      }
+
+      if (shouldNotifyFrontend || sent === COUNT) return;
+
+      const _nextTick = time + (this.#frontendTickDelay || 0);
+      this.#nextFrontendTickTime = _nextTick;
+      const timeSent = Date.now();
+      const clearPending = frontendTickDelayArray.length === COUNT - 4;
+      if (!this.#frontendTickDelay) sent++;
+      this.frontEndCallBack?.["timeline:update"]?.(
+        time,
+        proxy(async (timeReceived: number) => {
+          const diff = (timeReceived - timeSent) / 1000;
+          if (!this.#frontendTickDelay) {
+            frontendTickDelayArray.push(diff);
+          } else {
+            console.log("completed");
+          }
+        }),
+        clearPending,
+      );
+    });
+    this.timeline.addEventListener("onComplete", async (time) => {
+      this.#nextFrontendTickTime = 0;
+    });
+
+    /* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
   }
 
   set selectedShapes(ids: string[]) {
@@ -251,11 +318,10 @@ export class MotionEditor {
       const newWidth = shape.scaleX * shape.width;
       const newHeight = shape.scaleY * shape.height;
       this.frontEndCallBack?.["object:scaling"]?.(id, newWidth, newHeight);
-      console.log(newWidth);
 
       keyframes.push([
         id,
-        this.time,
+        this.timeline.time,
         {
           width: newWidth,
           height: newHeight,
@@ -283,7 +349,7 @@ export class MotionEditor {
       setTimeout(() => {
         const { x, y } = i.getXY();
         this.frontEndCallBack?.["object:moving"]?.(shapeId, x, y);
-        keyframes.push([shapeId, this.time, { left: x, top: y }]);
+        keyframes.push([shapeId, this.timeline.time, { left: x, top: y }]);
         if (index === selectedShapes.length - 1) {
           this.debouncedAddKeyframe(...keyframes);
         }
@@ -313,14 +379,18 @@ export class MotionEditor {
         additionalProperties = { left: x, top: y };
       }
 
-      keyframes.push([shapeId, this.time, { angle: e.target.angle, ...additionalProperties }]);
+      keyframes.push([
+        shapeId,
+        this.timeline.time,
+        { angle: e.target.angle, ...additionalProperties },
+      ]);
     });
 
     this.debouncedAddKeyframe(...keyframes);
   }
 
   private onObjectMouseOver(e: TPointerEventInfo<TPointerEvent>) {
-    if (this.isPlaying) return;
+    if (this.timeline.isPlaying) return;
     if (e.target) {
       const isActive = this.selectedShapes?.includes(e.target.id || "");
       console.log({ a: this.selectedShapes, t: e.target });
@@ -369,21 +439,8 @@ export class MotionEditor {
         this.frontEndCallBack[args[0]] = args[1];
         break;
       case "timeline:update":
-        {
-          const originalFunc = args[1];
-          let isLocked = false;
-          this.frontEndCallBack[args[0]] = (time) => {
-            if (isLocked) return;
-            isLocked = true;
+        this.frontEndCallBack[args[0]] = args[1];
 
-            originalFunc?.(
-              time,
-              proxy((timestamp: number) => {
-                isLocked = false;
-              }),
-            );
-          };
-        }
         break;
       case "registerFont":
         this.frontEndCallBack[args[0]] = args[1];
@@ -394,11 +451,19 @@ export class MotionEditor {
       case "keyframe:delete":
         this.frontEndCallBack[args[0]] = args[1];
         break;
+
       default: {
         const key = args[0];
         this.frontEndCallBack[key] = args[1];
       }
     }
+  }
+
+  registerFrontendFunctions<Type extends keyof MainThreadFunctions>(
+    type: Type,
+    func: MainThreadFunctions[Type],
+  ) {
+    this.#frontendFunctions[type] = func;
   }
   handleMouseCallback(type: keyof HTMLElementEventMap, data: TPointerEvent) {
     if (type === "mouseup") {
@@ -669,43 +734,30 @@ export class MotionEditor {
   }
 
   onMouseUp() {}
+  togglePlay() {
+    if (this.timeline.isPlaying) {
+      this.pause();
+    } else {
+      this.play();
+    }
+  }
   async play() {
-    this.isPlaying = true;
-    this.lastTime = performance.now();
-    requestAnimationFrame(this.startPlayingLoop.bind(this));
+    this.#nextFrontendTickTime = 0;
+    this.timeline.play();
   }
-  startPlayingLoop(now: number) {
-    if (!this.isPlaying) return;
-
-    this.callBackIds.animationFrameCallbackId = requestAnimationFrame(
-      this.startPlayingLoop.bind(this),
-    );
-
-    if (this.lastTime == null) {
-      this.lastTime = now;
-    }
-
-    const dt = (now - this.lastTime) / 1000;
-    this.lastTime = now;
-
-    this.time += dt;
-
-    this.seek(this.time);
-    this.frontEndCallBack?.["timeline:update"]?.(this.time);
-
-    if (this.time >= 10) {
-      this.time = 0;
-    }
+  get time() {
+    return this.timeline.time;
   }
+
   pause() {
-    this.isPlaying = false;
-    cancelAnimationFrame(this.callBackIds.animationFrameCallbackId);
-    this.lastTime = null;
+    this.#nextFrontendTickTime = 0;
+    if (this.timeline.isPlaying) this.frontEndCallBack?.["timeline:update"]?.(this.timeline.time);
+    this.timeline.pause();
     this.reselectShape?.();
+    console.info("paused at", this.timeline.time);
   }
-  seek(time: number) {
+  seekShapes(time: number) {
     const selectedShape = this.canvas.getActiveObjects();
-
     if (selectedShape.length > 0) {
       this.canvas.discardActiveObject();
       this.reselectShape = () => {
@@ -722,8 +774,10 @@ export class MotionEditor {
     this.shapeRecord.forEach((shape) => {
       shape.seek(_time);
     });
-    if (!this.isPlaying) {
-      this.time = _time;
+    if (!this.timeline.isPlaying) {
+      this.timeline.setTime(_time);
+      console.log({ _time });
+
       this.shapeRecord.forEach((value) => {
         value.fabricObject.setCoords();
       });
@@ -748,5 +802,83 @@ export class MotionEditor {
     } catch (error) {
       console.log({ error });
     }
+  }
+}
+
+type TimeLineCallback = {
+  onUpdate?: ((time: number) => void)[];
+  onPlay?: ((time: number) => void)[];
+  onPause?: ((time: number) => void)[];
+  onComplete?: ((time: number) => void)[];
+};
+class Timeline {
+  #lastTime: null | number = null;
+  #time = 0;
+  #callback: TimeLineCallback = {};
+  #animationFrameCallbackId = 0;
+
+  isPlaying = false;
+
+  constructor(
+    public duration = 10,
+    public shouldLoop = false,
+  ) {}
+
+  get time() {
+    return this.#time;
+  }
+  setTime(t: number) {
+    this.#time = t;
+  }
+
+  play() {
+    this.isPlaying = true;
+    this.#lastTime = performance.now();
+    this.#callback.onPlay?.forEach((func) => func(this.#time));
+    requestAnimationFrame(this.#loop.bind(this));
+  }
+  pause() {
+    this.isPlaying = false;
+    cancelAnimationFrame(this.#animationFrameCallbackId);
+    this.#callback.onPause?.forEach((func) => func(this.#time));
+    this.#lastTime = null;
+  }
+
+  #loop(now: number) {
+    if (!this.isPlaying) return;
+
+    this.#animationFrameCallbackId = requestAnimationFrame(this.#loop.bind(this));
+
+    if (this.#lastTime == null) {
+      this.#lastTime = now;
+    }
+
+    const dt = Math.max(0, now - this.#lastTime) / 1000;
+    this.#lastTime = now;
+
+    this.#time = Math.min(this.duration, this.#time + dt);
+
+    this.#callback?.onUpdate?.forEach((func) => {
+      func(this.#time);
+    });
+
+    const isComplete = this.#time >= this.duration;
+
+    if (isComplete) {
+      this.#callback?.onComplete?.forEach((func) => {
+        func(this.#time);
+      });
+      if (this.shouldLoop) {
+        this.#time = 0;
+      } else {
+        this.pause();
+      }
+    }
+  }
+  addEventListener(type: keyof TimeLineCallback, func: (time: number) => void) {
+    if (!this.#callback?.[type]) {
+      this.#callback[type] = [];
+    }
+    this.#callback[type].push(func);
   }
 }

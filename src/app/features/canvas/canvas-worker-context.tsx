@@ -1,4 +1,4 @@
-import { useAppDispatch } from "@/app/store";
+import { dispatchableSelector, useAppDispatch } from "@/app/store";
 import { proxy, transfer } from "comlink";
 import gsap from "gsap";
 import { useCallback, useEffect, useRef, useState, type PropsWithChildren } from "react";
@@ -13,6 +13,7 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
   const app = useRef<typeof CanvasWorkerProxy>(undefined);
   const dispatch = useAppDispatch();
   const containerRef = useRef<HTMLDivElement | null>(undefined);
+  const timeoutRef = useRef<number[]>([]);
 
   const [hasInitializedWorker, setHasInitializedWorker] = useState(false);
 
@@ -92,11 +93,20 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
 
     app.current?.addEventListener(
       "timeline:update",
-      proxy<FrontendCallback["timeline:update"]>((time, onUpdate) => {
+      proxy<FrontendCallback["timeline:update"]>(async (time, onUpdate, clear) => {
         dispatch(setCurrentTime(time));
         onUpdate?.(Date.now());
       }),
     );
+
+    app.current?.registerFrontendFunctions(
+      "getFrontEndTimelineTime",
+      proxy(() => {
+        const time = dispatch(dispatchableSelector((store) => store.timeline.currentTime));
+        return time;
+      }),
+    );
+
     app.current?.addEventListener(
       "keyframe:add",
       proxy<FrontendCallback["keyframe:add"]>(
@@ -109,10 +119,11 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
   };
 
   const seekTimeLine = (time: number) => {
-    const _time = Math.min(10, Math.max(0, time));
     app.current?.pause();
-    app.current?.seek(_time);
-    dispatch(setCurrentTime(_time));
+    setTimeout(() => {
+      app.current?.seekShapes(time);
+      dispatch(setCurrentTime(time));
+    }, 300);
   };
 
   const handleKeyDown = useCallback(
@@ -130,14 +141,7 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
           break;
         case " ":
           {
-            const isPlaying = await app.current?.isPlaying;
-            console.log({ isPlaying });
-
-            if (!isPlaying) {
-              app.current?.play();
-            } else {
-              app.current?.pause();
-            }
+            app.current?.togglePlay();
           }
           break;
       }

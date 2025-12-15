@@ -64,8 +64,6 @@ function TimelineTimeStampHeader() {
     isMouseDown.current = false;
   }, []);
   const movePlayhead = async (time: number) => {
-    const _time = await canvasContext.app?.time;
-    if (time === _time) return;
     trackDiv.current?.style.setProperty("transition", "left 0.5s");
     canvasContext.seekTimeLine(time);
   };
