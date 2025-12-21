@@ -5,7 +5,6 @@ export function throttle<G = unknown, T extends Array<G> = G[], Y = unknown>(
   delay: number,
 ) {
   let last = 0;
-  console.log("creating throttle function");
   return (...args: T): Promise<Y> => {
     return new Promise((res) => {
       const now = Date.now();

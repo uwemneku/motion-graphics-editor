@@ -1,7 +1,8 @@
-import { useAppDispatch } from "@/app/store";
+import { useAppDispatch, useAppSelector } from "@/app/store";
 import { Brush, Circle, Image, Play, Shapes, Square, TypeIcon, Video } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRef, useState, type ReactNode } from "react";
+import { PiPauseDuotone } from "react-icons/pi";
 import type { EditorMode, NodeType } from "../../../types";
 import { useCanvasWorkerContext } from "../canvas/useCanvasContext";
 import { TimeStamp } from "../timeline/Timestamp";
@@ -15,6 +16,8 @@ function ShapePicker(props: Props) {
   const dispatch = useAppDispatch();
   const canvasContext = useCanvasWorkerContext();
   const [mode, setMode] = useState<EditorMode>(props.initiMode);
+
+  const isPaused = useAppSelector((state) => state.timeline.isPaused);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleAddShape(shape: NodeType) {
@@ -93,6 +96,9 @@ function ShapePicker(props: Props) {
     }
   }
 
+  const Icon = isPaused ? Play : PiPauseDuotone;
+  console.log({ isPaused });
+
   return (
     <div className="relative flex text-xl">
       <motion.div
@@ -145,7 +151,7 @@ function ShapePicker(props: Props) {
               exit={{ backdropFilter: "blur(10px)", opacity: 0, scale: 0.9 }}
             >
               <button>
-                <Play className="fill-blue-400 text-blue-400" strokeWidth={1.5} />
+                <Icon className="fill-blue-400 text-blue-400" strokeWidth={1.5} />
               </button>
               <div>
                 <TimeStamp />

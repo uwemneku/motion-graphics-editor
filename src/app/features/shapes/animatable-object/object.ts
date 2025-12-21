@@ -135,7 +135,6 @@ export class AnimatableObject {
       const startTime = prevKeyFrame.time;
       const progress = time - startTime;
       const percentageProgress = progress / duration;
-      console.log({ percentageProgress });
 
       const transformedPercentageProgress = parseFloat(
         Easing.easeInOutQuad(percentageProgress).toFixed(3),

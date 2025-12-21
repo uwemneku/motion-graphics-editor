@@ -59,8 +59,9 @@ export type FrontendCallback = {
   "timeline:update": (
     time: number,
     onHandle?: (timeStamp: number) => void,
-    clear?: boolean,
+    isPlaying?: boolean,
   ) => void;
+  "timeline:state": () => void;
   "keyframe:add": <P extends keyof AnimatableProperties>(
     id: string,
     time: number,

@@ -74,7 +74,7 @@ export default function AppLayout() {
             </div>
           </main>
         </div>
-        <div className="absolute right-0 h-full p-4">
+        <div className="absolute right-0 z-20 h-full p-4">
           <ShapeControls />
         </div>
       </div>

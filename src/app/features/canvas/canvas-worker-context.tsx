@@ -3,7 +3,7 @@ import { proxy, transfer } from "comlink";
 import gsap from "gsap";
 import { useCallback, useEffect, useRef, useState, type PropsWithChildren } from "react";
 import { deleteShape } from "../shapes/slice";
-import { addKeyFrame, setCurrentTime } from "../timeline/slice";
+import { addKeyFrame, setCurrentTime, setIsPaused } from "../timeline/slice";
 import { MotionEditor } from "../web-workers/app";
 import CanvasWorkerProxy from "../web-workers/main-thread-exports";
 import type { FrontendCallback } from "../web-workers/types";
@@ -93,8 +93,9 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
 
     app.current?.addEventListener(
       "timeline:update",
-      proxy<FrontendCallback["timeline:update"]>(async (time, onUpdate, clear) => {
+      proxy<FrontendCallback["timeline:update"]>(async (time, onUpdate, isPlaying) => {
         dispatch(setCurrentTime(time));
+        dispatch(setIsPaused(!isPlaying));
         onUpdate?.(Date.now());
       }),
     );
@@ -119,11 +120,7 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
   };
 
   const seekTimeLine = (time: number) => {
-    app.current?.pause();
-    setTimeout(() => {
-      app.current?.seekShapes(time);
-      dispatch(setCurrentTime(time));
-    }, 300);
+    app.current?.seekPlayHead(time);
   };
 
   const handleKeyDown = useCallback(

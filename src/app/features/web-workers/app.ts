@@ -9,12 +9,21 @@ import {
   FabricText,
   InteractiveFabricObject,
   Rect,
+  StaticCanvas,
   Textbox,
   type BasicTransformEvent,
   type TPointerEvent,
   type TPointerEventInfo,
 } from "fabric";
 import { initAligningGuidelines } from "fabric/extensions";
+import {
+  BufferTarget,
+  CanvasSource,
+  getFirstEncodableVideoCodec,
+  Mp4OutputFormat,
+  Output,
+  QUALITY_VERY_HIGH,
+} from "mediabunny";
 import { IS_WEB_WORKER } from "./globals";
 import type { CreateShapeArgs, FrontendCallback, MainThreadFunctions } from "./types";
 
@@ -71,7 +80,7 @@ export class MotionEditor {
 
   mode: EditorMode = "animate";
   totalDuration = 10;
-  timeline = new Timeline(10, false);
+  timeline = new Timeline(10, true);
 
   /* -------------------------------------------------------------------------- */
   /* -------------------------------------------------------------------------- */
@@ -217,7 +226,6 @@ export class MotionEditor {
 
     this.timeline.addEventListener("onUpdate", async (time) => {
       this.seekShapes(time);
-      console.log({ worker: time });
 
       // only notify frontend if tickDelay
       const hasCalculatedAverageDelay = this.#frontendTickDelay !== undefined;
@@ -239,7 +247,6 @@ export class MotionEditor {
       const _nextTick = time + (this.#frontendTickDelay || 0);
       this.#nextFrontendTickTime = _nextTick;
       const timeSent = Date.now();
-      const clearPending = frontendTickDelayArray.length === COUNT - 4;
       if (!this.#frontendTickDelay) sent++;
       this.frontEndCallBack?.["timeline:update"]?.(
         time,
@@ -247,11 +254,9 @@ export class MotionEditor {
           const diff = (timeReceived - timeSent) / 1000;
           if (!this.#frontendTickDelay) {
             frontendTickDelayArray.push(diff);
-          } else {
-            console.log("completed");
           }
         }),
-        clearPending,
+        this.timeline.isPlaying,
       );
     });
     this.timeline.addEventListener("onComplete", async (time) => {
@@ -294,6 +299,9 @@ export class MotionEditor {
     this.render();
   }
 
+  /**
+   * Callback function for when a shape is scaled.
+   */
   private onObjectScale(e: TransformEvent) {
     const keyframes: Parameters<typeof this.addKeyFrame> = [];
     this.selectedShapes?.forEach((id) => {
@@ -339,6 +347,9 @@ export class MotionEditor {
     this.debouncedAddKeyframe(...keyframes);
   }
 
+  /**
+   * Callback function for when a shape is moved.
+   */
   private onObjectMove(e: TransformEvent) {
     const keyframes: Parameters<typeof this.addKeyFrame> = [];
     const selectedShapes = this.canvas.getActiveObjects();
@@ -356,10 +367,12 @@ export class MotionEditor {
       }, 250);
     });
   }
+  /**
+   * Callback function for when a shape is rotated.
+   */
 
   private onObjectRotate(e: TransformEvent) {
     let objects: FabricObject[] = [];
-    console.log(e);
     if ("_objects" in e.target) {
       objects = e.target._objects as FabricObject[];
     } else {
@@ -389,11 +402,13 @@ export class MotionEditor {
     this.debouncedAddKeyframe(...keyframes);
   }
 
+  /**
+   * Callback function for when a mouse is over a shape.
+   */
   private onObjectMouseOver(e: TPointerEventInfo<TPointerEvent>) {
     if (this.timeline.isPlaying) return;
     if (e.target) {
       const isActive = this.selectedShapes?.includes(e.target.id || "");
-      console.log({ a: this.selectedShapes, t: e.target });
 
       const isMultipleItemsSelcted = this.selectedShapes.length > 1;
       if (isActive || isMultipleItemsSelcted) return;
@@ -471,7 +486,6 @@ export class MotionEditor {
       return;
     }
     if (type === "mousedown") {
-      console.log("hello");
     }
     MotionEditor.fabricUpperCanvasEventListenersCallback[type]?.(data);
     this.canvas.renderAll();
@@ -754,7 +768,6 @@ export class MotionEditor {
     if (this.timeline.isPlaying) this.frontEndCallBack?.["timeline:update"]?.(this.timeline.time);
     this.timeline.pause();
     this.reselectShape?.();
-    console.info("paused at", this.timeline.time);
   }
   seekShapes(time: number) {
     const selectedShape = this.canvas.getActiveObjects();
@@ -775,15 +788,70 @@ export class MotionEditor {
       shape.seek(_time);
     });
     if (!this.timeline.isPlaying) {
-      this.timeline.setTime(_time);
-      console.log({ _time });
-
       this.shapeRecord.forEach((value) => {
         value.fabricObject.setCoords();
       });
       this.reselectShape?.();
     }
     this.canvas.renderAll();
+  }
+  seekPlayHead(time: number) {
+    this.pause();
+    this.seekShapes(time);
+    this.timeline.setTime(time, true);
+  }
+  async export() {
+    const videoWidth = 4096;
+    const videoHeight = 2160;
+    const offscreenCanvas = new OffscreenCanvas(videoWidth, videoHeight);
+    addPropertiesToCanvas(offscreenCanvas as OffscreenCanvas, videoWidth, videoHeight);
+    //
+    this.shapeRecord.forEach((shape) => {
+      const g = shape.fabricObject.clone();
+    });
+    const canvas = new StaticCanvas(offscreenCanvas as unknown as HTMLCanvasElement);
+    //
+    const output = new Output({
+      target: new BufferTarget(), // Stored in memory
+      format: new Mp4OutputFormat({}),
+    });
+    const videoCodec = await getFirstEncodableVideoCodec(output.format.getSupportedVideoCodecs(), {
+      width: videoWidth,
+      height: videoHeight,
+    });
+    if (!videoCodec) return;
+    const canvasSource = new CanvasSource(offscreenCanvas, {
+      codec: videoCodec,
+      bitrate: QUALITY_VERY_HIGH,
+    });
+    const frameRate = 100;
+    output.addVideoTrack(canvasSource, { frameRate });
+    await output.start();
+    const TOTAL_DURATION = 10; // seconds
+    const totalFrames = frameRate * TOTAL_DURATION;
+    const rect = new Rect({
+      fill: "red",
+      width: videoWidth * 0.2,
+      height: videoHeight * 0.2,
+      left: 0,
+      top: 0,
+      objectCaching: false,
+    });
+    canvas.add(rect);
+    canvas.renderAll();
+    for (let i = 1; i < totalFrames; i++) {
+      rect.top = i;
+      rect.left = i;
+      canvas.renderAll();
+      await canvasSource.add((i / totalFrames) * TOTAL_DURATION, 1 / frameRate);
+    }
+    canvasSource.close();
+    await output.finalize();
+    const videoBlob = new Blob([output.target.buffer!], {
+      type: output.format.mimeType,
+    });
+    const resultVideo = URL.createObjectURL(videoBlob);
+    return resultVideo;
   }
 
   static async loadFont() {
@@ -827,8 +895,13 @@ class Timeline {
   get time() {
     return this.#time;
   }
-  setTime(t: number) {
+  setTime(t: number, shouldAlert?: boolean) {
     this.#time = t;
+    if (shouldAlert) {
+      this.#callback?.onUpdate?.forEach((func) => {
+        func(this.#time);
+      });
+    }
   }
 
   play() {
@@ -856,11 +929,8 @@ class Timeline {
     const dt = Math.max(0, now - this.#lastTime) / 1000;
     this.#lastTime = now;
 
-    this.#time = Math.min(this.duration, this.#time + dt);
-
-    this.#callback?.onUpdate?.forEach((func) => {
-      func(this.#time);
-    });
+    const _time = Math.min(this.duration, this.#time + dt);
+    this.setTime(_time, true);
 
     const isComplete = this.#time >= this.duration;
 
@@ -869,7 +939,7 @@ class Timeline {
         func(this.#time);
       });
       if (this.shouldLoop) {
-        this.#time = 0;
+        this.setTime(0, true);
       } else {
         this.pause();
       }
@@ -882,3 +952,18 @@ class Timeline {
     this.#callback[type].push(func);
   }
 }
+
+const exportF = (
+  objects: AnimatableObject[],
+  clipDetails: {
+    height: number;
+    width: number;
+    left: number;
+    right: number;
+  },
+) => {
+  const offscreenCanvas = new OffscreenCanvas(clipDetails.width, clipDetails.height);
+  const canvas = new StaticCanvas(offscreenCanvas as unknown as HTMLCanvasElement);
+  canvas.width = clipDetails.width;
+  canvas.height = clipDetails.height;
+};
