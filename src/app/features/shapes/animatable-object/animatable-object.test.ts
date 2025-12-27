@@ -120,9 +120,9 @@ describe("Animatable object test", () => {
       ],
     };
 
-    animatableObject1.seek(1, true);
+    animatableObject1.seek(1);
     expect(animatableObject1.fabricObject.get("left")).toBe(485.5);
-    animatableObject1.seek(4, true);
+    animatableObject1.seek(4);
     expect((animatableObject1.fabricObject.get("left") as number).toFixed(1)).toBe("430.4");
   });
 });

@@ -111,30 +111,7 @@ export class MotionEditor {
     }
     // Default fabric object configurations
     config.configure({ devicePixelRatio });
-    const controls = controlsUtils.createObjectDefaultControls();
-    controls.mr.sizeX = controls.ml.sizeX = 5;
-    controls.mr.sizeY = controls.ml.sizeY = 20;
-    controls.mt.sizeY = controls.mb.sizeY = 5;
-    controls.mt.sizeX = controls.mb.sizeX = 20;
-
-    // Styles default controls
-    InteractiveFabricObject.ownDefaults.originX = "center";
-    InteractiveFabricObject.ownDefaults.originY = "center";
-    InteractiveFabricObject.ownDefaults.strokeUniform = true;
-    InteractiveFabricObject.ownDefaults = {
-      ...InteractiveFabricObject.ownDefaults,
-      cornerStrokeColor: "rgb(81 162 255)",
-      cornerColor: "rgb(255 255 255)",
-      cornerSize: 8,
-      padding: 0,
-      transparentCorners: false,
-      borderColor: "rgb(81 162 255)",
-      borderScaleFactor: 1.05,
-      borderOpacityWhenMoving: 1,
-      controls: {
-        ...controls,
-      },
-    };
+    addCustomControls();
 
     this.canvas = new Canvas(lowerOffscreenCanvas as unknown as HTMLCanvasElement, {
       enableRetinaScaling: true,
@@ -178,8 +155,6 @@ export class MotionEditor {
     /* -------------------------------------------------------------------------- */
 
     /* -------------------------------------------------------------------------- */
-
-    /* -------------------------------------------------------------------------- */
     // Canvas event listeners
     /* -------------------------------------------------------------------------- */
     this.canvas.on("object:scaling", this.onObjectScale.bind(this));
@@ -188,6 +163,7 @@ export class MotionEditor {
     this.canvas.on("mouse:over", this.onObjectMouseOver.bind(this));
 
     this.canvas.on("mouse:dblclick", ({ target, subTargets }) => {
+      if (this.timeline.isPlaying) return;
       if (target?.type === "text") {
         const _target = target as FabricText;
         const text = _target.text;
@@ -209,6 +185,7 @@ export class MotionEditor {
       this.selectedShapes = ids;
     });
     this.canvas.on("mouse:out", () => {
+      if (this.timeline.isPlaying) return;
       this.frontEndCallBack?.clearShapeHighlight?.();
     });
 
@@ -466,6 +443,9 @@ export class MotionEditor {
       case "keyframe:delete":
         this.frontEndCallBack[args[0]] = args[1];
         break;
+      case "onDeleteObject":
+        this.frontEndCallBack[args[0]] = args[1];
+        break;
 
       default: {
         const key = args[0];
@@ -486,6 +466,7 @@ export class MotionEditor {
       return;
     }
     if (type === "mousedown") {
+      //
     }
     MotionEditor.fabricUpperCanvasEventListenersCallback[type]?.(data);
     this.canvas.renderAll();
@@ -545,7 +526,7 @@ export class MotionEditor {
   async createShape(args: CreateShapeArgs) {
     let shape: FabricObject | null = null;
     const id = crypto.randomUUID();
-    const defaultFill = "skyblue";
+    const defaultFill = "rgba(0,0,0,0.5)";
     const defaultStroke = "black";
 
     switch (args.type) {
@@ -661,6 +642,7 @@ export class MotionEditor {
   }
 
   getShapeCoordinatesByID(id: string) {
+    if (this.timeline.isPlaying) return;
     const shape = this.shapeRecord.get(id)?.fabricObject;
     if (shape) {
       return getShapeCoordinates(shape);
@@ -736,7 +718,7 @@ export class MotionEditor {
         });
         if (!keyframeDetails) return;
 
-        this.frontEndCallBack["keyframe:add"]?.(
+        this.frontEndCallBack["keyframe:add"]<keyof AnimatableProperties>?.(
           shapeId,
           time,
           keyframeDetails,
@@ -774,7 +756,11 @@ export class MotionEditor {
     if (selectedShape.length > 0) {
       this.canvas.discardActiveObject();
       this.reselectShape = () => {
-        const selection = new ActiveSelection([], { canvas: this.canvas });
+        const selection = new ActiveSelection([], {
+          canvas: this.canvas,
+          // this ensures that for single selected items, the canvas selection callbacks have the id property
+          id: selectedShape.length == 1 ? selectedShape?.[0]?.id : undefined,
+        });
         selection.multiSelectAdd(...selectedShape);
         this.canvas._hoveredTarget = selection;
         this.canvas.setActiveObject(selection);
@@ -800,7 +786,7 @@ export class MotionEditor {
     this.seekShapes(time);
     this.timeline.setTime(time, true);
   }
-  async export() {
+  async exportToVideo(onUpdate?: (progress: number) => void) {
     const videoWidth = 4096;
     const videoHeight = 2160;
     const offscreenCanvas = new OffscreenCanvas(videoWidth, videoHeight);
@@ -839,11 +825,14 @@ export class MotionEditor {
     });
     canvas.add(rect);
     canvas.renderAll();
+
     for (let i = 1; i < totalFrames; i++) {
       rect.top = i;
       rect.left = i;
       canvas.renderAll();
       await canvasSource.add((i / totalFrames) * TOTAL_DURATION, 1 / frameRate);
+      const progress = i / totalFrames;
+      onUpdate?.(progress);
     }
     canvasSource.close();
     await output.finalize();
@@ -952,18 +941,29 @@ class Timeline {
     this.#callback[type].push(func);
   }
 }
+function addCustomControls() {
+  const controls = controlsUtils.createObjectDefaultControls();
+  controls.mr.sizeX = controls.ml.sizeX = 5;
+  controls.mr.sizeY = controls.ml.sizeY = 20;
+  controls.mt.sizeY = controls.mb.sizeY = 5;
+  controls.mt.sizeX = controls.mb.sizeX = 20;
 
-const exportF = (
-  objects: AnimatableObject[],
-  clipDetails: {
-    height: number;
-    width: number;
-    left: number;
-    right: number;
-  },
-) => {
-  const offscreenCanvas = new OffscreenCanvas(clipDetails.width, clipDetails.height);
-  const canvas = new StaticCanvas(offscreenCanvas as unknown as HTMLCanvasElement);
-  canvas.width = clipDetails.width;
-  canvas.height = clipDetails.height;
-};
+  // Styles default controls
+  InteractiveFabricObject.ownDefaults.originX = "center";
+  InteractiveFabricObject.ownDefaults.originY = "center";
+  InteractiveFabricObject.ownDefaults.strokeUniform = true;
+  InteractiveFabricObject.ownDefaults = {
+    ...InteractiveFabricObject.ownDefaults,
+    cornerStrokeColor: "rgb(81 162 255)",
+    cornerColor: "rgb(255 255 255)",
+    cornerSize: 8,
+    padding: 0,
+    transparentCorners: false,
+    borderColor: "rgb(81 162 255)",
+    borderScaleFactor: 1.05,
+    borderOpacityWhenMoving: 1,
+    controls: {
+      ...controls,
+    },
+  };
+}

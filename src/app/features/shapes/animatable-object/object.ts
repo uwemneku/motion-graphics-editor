@@ -1,6 +1,6 @@
 import type { FabricObject } from "fabric";
 import { findInsertIndex } from "../../../util/timeline";
-// clicking outside twice
+
 export type AnimatableProperties = {
   left: number;
   top: number;
@@ -12,6 +12,7 @@ export type AnimatableProperties = {
   angle: number;
   rx: number;
   ry: number;
+  fill: [number, number, number, number];
   //   clipPath: string;
 };
 export interface Keyframe<K extends keyof AnimatableProperties = keyof AnimatableProperties> {
@@ -38,6 +39,7 @@ export class AnimatableObject {
     "height",
     "scaleX",
     "scaleY",
+    "fill",
   ];
   // Should this be private?
   keyframes: { [key in keyof AnimatableProperties]?: Keyframe<key>[] } = {};
@@ -45,22 +47,44 @@ export class AnimatableObject {
 
   constructor(public fabricObject: FabricObject) {
     this.freezeProperties(0);
+    this.addKeyframe({ property: "fill", easing: "", time: 3, value: [0, 200, 200, 1] });
+    this.addKeyframe({ property: "fill", easing: "", time: 8, value: [255, 9, 50, 0.2] });
   }
 
   freezeProperties(time: number) {
     AnimatableObject.animatableProperties.forEach((property) => {
-      const value = this.fabricObject?.get(property);
+      let value = this.fabricObject?.get(property);
       if (value === undefined) return;
+
+      // only freeze rx and ry properties for ellipses
       const objectType = this.fabricObject.type;
+      const isEllipse = objectType !== "ellipse" && ["rx", "ry"].includes(property);
+      if (isEllipse) return;
 
-      if (objectType !== "ellipse" && ["rx", "ry"].includes(property)) {
-        return;
+      const isBackgroundColor = property === "fill";
+      if (isBackgroundColor) {
+        // we assume that all color property are in rgba format
+        const rgba = extractRgbValue(value);
+        if (!rgba) return;
+        value = rgba;
       }
-
       this.addKeyframe({ easing: "", property, time, value });
     });
   }
-  seek(time: number, d?: boolean) {
+  updateProperty<K extends keyof AnimatableProperties>(key: K, value: AnimatableProperties[K]) {
+    let _value: string | number | number[] = value;
+
+    switch (key) {
+      case "fill":
+        if (!Array.isArray(value)) return;
+        _value = `rgba(${value[0]}, ${value[1]}, ${value[2]}, ${value[3]})`;
+        break;
+      default:
+        break;
+    }
+    this.fabricObject.set(key, _value);
+  }
+  seek(time: number) {
     for (const _key in this.keyframes) {
       if (!Object.hasOwn(this.keyframes, _key)) continue;
 
@@ -77,14 +101,14 @@ export class AnimatableObject {
       const isBeforeFirstFrame = time <= firstKeyframe.time;
       if (isBeforeFirstFrame) {
         if (firstKeyframe.value !== this.fabricObject.get(key))
-          this.fabricObject.set(key, firstKeyframe.value);
+          this.updateProperty(key, firstKeyframe.value);
         continue;
       }
 
       const isAfterLastFrame = lastKeyframe && time >= lastKeyframe.time;
       if (isAfterLastFrame) {
         if (lastKeyframe.value !== this.fabricObject.get(key)) {
-          this.fabricObject.set(key, lastKeyframe.value);
+          this.updateProperty(key, lastKeyframe.value);
         }
         continue;
       }
@@ -112,10 +136,6 @@ export class AnimatableObject {
       const keyFrameAtIndex = propertyKeyFrames[keyFrameIndex];
       const prevKeyFrame = propertyKeyFrames?.[keyFrameIndex - 1];
 
-      if (d) {
-        // console.log({ cacheIndex, time, kt: keyFrameAtIndex.time, c: this.cache });
-      }
-
       if (updateCache) {
         const nextKeyFrame = propertyKeyFrames?.[keyFrameIndex + 1];
         this.cache[key] = {
@@ -127,11 +147,10 @@ export class AnimatableObject {
       }
 
       if (time === keyFrameAtIndex.time) {
-        this.fabricObject.set(keyFrameAtIndex.property, keyFrameAtIndex.value);
+        this.updateProperty(keyFrameAtIndex.property, keyFrameAtIndex.value);
         continue;
       }
       const duration = keyFrameAtIndex.time - prevKeyFrame.time;
-      const deltaValue = keyFrameAtIndex.value - prevKeyFrame.value;
       const startTime = prevKeyFrame.time;
       const progress = time - startTime;
       const percentageProgress = progress / duration;
@@ -140,9 +159,19 @@ export class AnimatableObject {
         Easing.easeInOutQuad(percentageProgress).toFixed(3),
       );
 
-      const value = prevKeyFrame.value + deltaValue * transformedPercentageProgress;
-
-      this.fabricObject.set(keyFrameAtIndex.property, value);
+      if (isBackground(keyFrameAtIndex) && isBackground(prevKeyFrame)) {
+        const value = keyFrameAtIndex.value.map((v, i) => {
+          const prev = prevKeyFrame.value[i];
+          const deltaValue = v - prev;
+          const _value = prev + deltaValue * transformedPercentageProgress;
+          return _value;
+        }) as AnimatableProperties["fill"];
+        this.updateProperty(keyFrameAtIndex.property, value);
+      } else if (!isBackground(keyFrameAtIndex) && !isBackground(prevKeyFrame)) {
+        const deltaValue = keyFrameAtIndex.value - prevKeyFrame.value;
+        const value = prevKeyFrame.value + deltaValue * transformedPercentageProgress;
+        this.updateProperty(keyFrameAtIndex.property, value);
+      }
     }
   }
   /**
@@ -151,6 +180,7 @@ export class AnimatableObject {
   addKeyframe<K extends keyof AnimatableProperties>(
     keyframe: Omit<Keyframe<K>, "id" | "duration">,
   ) {
+    // clear cache when a new keyframe is added for a property
     if (this.cache[keyframe.property]) {
       this.cache[keyframe.property] = undefined;
     }
@@ -215,3 +245,22 @@ const Easing = {
       : (Math.pow(2 * x - 2, 2) * ((c2 + 1) * (x * 2 - 2) + c2) + 2) / 2;
   },
 };
+
+/**A type assertion function that checks Checks if a keyframe is for the `background` property */
+const isBackground = (keyframe: Keyframe): keyframe is Keyframe<"fill"> =>
+  keyframe.property === "fill";
+
+const extractRgbValue = (value: string) => {
+  const data = value
+    .match(/\d+\.\d+|\d+/g)
+    ?.map((i) => parseFloat(i))
+    .filter((i) => i !== undefined);
+  if (data?.length === 4) return data;
+};
+
+const excludeType = <T extends keyof AnimatableProperties, K extends boolean>(
+  keyframe: Keyframe,
+  type: T,
+  exclude: K,
+): keyframe is Keyframe<K extends true ? Exclude<keyof AnimatableProperties, T> : T> =>
+  exclude ? keyframe.property !== type : keyframe.property === type;

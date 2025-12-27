@@ -155,7 +155,7 @@ function TimelineTimeStampHeader() {
         <div className="relative z-10 flex h-full items-end">
           <div className="flex w-full flex-1">
             {new Array(duration).fill("").map((_, index) => (
-              <div className="flex-1">
+              <div className="flex-1" key={index}>
                 <Time
                   onClick={() => {
                     movePlayhead(index);

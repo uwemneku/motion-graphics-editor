@@ -13,7 +13,6 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
   const app = useRef<typeof CanvasWorkerProxy>(undefined);
   const dispatch = useAppDispatch();
   const containerRef = useRef<HTMLDivElement | null>(undefined);
-  const timeoutRef = useRef<number[]>([]);
 
   const [hasInitializedWorker, setHasInitializedWorker] = useState(false);
 
@@ -112,6 +111,7 @@ function CanvasWorkerProvider(props: PropsWithChildren) {
       "keyframe:add",
       proxy<FrontendCallback["keyframe:add"]>(
         (id, time, keyframeDetails, animatableProperty, value) => {
+          // @ts-expect-error to test build
           dispatch(addKeyFrame([id, time, keyframeDetails, animatableProperty, value]));
         },
       ),
