@@ -9,19 +9,27 @@ import {
   FabricText,
   InteractiveFabricObject,
   Rect,
+  StaticCanvas,
   Textbox,
   type BasicTransformEvent,
   type TPointerEvent,
   type TPointerEventInfo,
 } from "fabric";
 import { initAligningGuidelines } from "fabric/extensions";
+import {
+  BufferTarget,
+  CanvasSource,
+  getFirstEncodableVideoCodec,
+  Mp4OutputFormat,
+  Output,
+  QUALITY_VERY_HIGH,
+} from "mediabunny";
 import { IS_WEB_WORKER } from "./globals";
-import type { CreateShapeArgs, FrontendCallback } from "./types";
+import type { CreateShapeArgs, FrontendCallback, MainThreadFunctions } from "./types";
 
 // Needed handle missing API in worker
 import type { EditorMode } from "@/types";
 import { proxy } from "comlink";
-import gsap from "gsap";
 import { addPropertiesToCanvas, debounce, getShapeCoordinates } from "../../util";
 import { AnimatableObject, type AnimatableProperties } from "../shapes/animatable-object/object";
 import "./fabric-polyfill";
@@ -40,14 +48,23 @@ export class MotionEditor {
   /**Fabric rect used to clip the canvas */
   private clipRect: Rect;
 
-  /**Stores callback from the main thread */
+  /**Stores callback from the main thread for when actions happens in the worker*/
   private frontEndCallBack: Partial<FrontendCallback> = {};
-  private callBackIds = { animationFrameCallbackId: 0 };
+  #frontendFunctions: Partial<{
+    [key in keyof MainThreadFunctions]: (
+      ...args: Parameters<MainThreadFunctions[key]>
+    ) => Promise<ReturnType<MainThreadFunctions[key]>>;
+  }> = {};
+  /**The minimum time after which the frontend "timeline:update" callback is called */
+  #nextFrontendTickTime = 0;
+  /**The average time ti takes for the frontend to receive and render timeline update */
+  #frontendTickDelay?: number;
+
   private reselectShape: (() => void) | undefined = undefined;
-  private lastTime: number | null = performance.now();
-  private timeline = gsap.timeline({ paused: true });
   private debouncedAddKeyframe: typeof this.addKeyFrame;
 
+  /* -------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------- */
   /* -------------------------------------------------------------------------- */
   // These static properties should only be used in web workers for polyfills to make fabric work from a webworker
   /* -------------------------------------------------------------------------- */
@@ -59,12 +76,15 @@ export class MotionEditor {
 
   /* -------------------------------------------------------------------------- */
   /* -------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------- */
 
-  mainThreadTime = 0;
   mode: EditorMode = "animate";
-  isPlaying: boolean = false;
-  time = 0;
   totalDuration = 10;
+  timeline = new Timeline(10, true);
+
+  /* -------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------- */
 
   constructor(
     /**
@@ -82,40 +102,16 @@ export class MotionEditor {
     // TODO: remove this as it was only added to test loading fonts
     {
       // Add missing properties to make offscreen canvas work in web worker
-      console.log({ IS_WEB_WORKER });
+      console.info({ IS_WEB_WORKER });
       if (IS_WEB_WORKER) {
         addPropertiesToCanvas(upperOffscreenCanvas as OffscreenCanvas, width, height);
         MotionEditor.upperCanvas = upperOffscreenCanvas as OffscreenCanvas;
         addPropertiesToCanvas(lowerOffscreenCanvas as OffscreenCanvas, width, height);
       }
     }
-    this.timeline.to({}, { duration: 10 });
     // Default fabric object configurations
     config.configure({ devicePixelRatio });
-    const controls = controlsUtils.createObjectDefaultControls();
-    controls.mr.sizeX = controls.ml.sizeX = 5;
-    controls.mr.sizeY = controls.ml.sizeY = 20;
-    controls.mt.sizeY = controls.mb.sizeY = 5;
-    controls.mt.sizeX = controls.mb.sizeX = 20;
-
-    // Styles default controls
-    InteractiveFabricObject.ownDefaults.originX = "center";
-    InteractiveFabricObject.ownDefaults.originY = "center";
-    InteractiveFabricObject.ownDefaults.strokeUniform = true;
-    InteractiveFabricObject.ownDefaults = {
-      ...InteractiveFabricObject.ownDefaults,
-      cornerStrokeColor: "rgb(81 162 255)",
-      cornerColor: "rgb(255 255 255)",
-      cornerSize: 8,
-      padding: 0,
-      transparentCorners: false,
-      borderColor: "rgb(81 162 255)",
-      borderScaleFactor: 1.05,
-      borderOpacityWhenMoving: 1,
-      controls: {
-        ...controls,
-      },
-    };
+    addCustomControls();
 
     this.canvas = new Canvas(lowerOffscreenCanvas as unknown as HTMLCanvasElement, {
       enableRetinaScaling: true,
@@ -159,8 +155,6 @@ export class MotionEditor {
     /* -------------------------------------------------------------------------- */
 
     /* -------------------------------------------------------------------------- */
-
-    /* -------------------------------------------------------------------------- */
     // Canvas event listeners
     /* -------------------------------------------------------------------------- */
     this.canvas.on("object:scaling", this.onObjectScale.bind(this));
@@ -169,6 +163,7 @@ export class MotionEditor {
     this.canvas.on("mouse:over", this.onObjectMouseOver.bind(this));
 
     this.canvas.on("mouse:dblclick", ({ target, subTargets }) => {
+      if (this.timeline.isPlaying) return;
       if (target?.type === "text") {
         const _target = target as FabricText;
         const text = _target.text;
@@ -190,9 +185,63 @@ export class MotionEditor {
       this.selectedShapes = ids;
     });
     this.canvas.on("mouse:out", () => {
+      if (this.timeline.isPlaying) return;
       this.frontEndCallBack?.clearShapeHighlight?.();
     });
-    const res = initAligningGuidelines(this.canvas, { color: "rgb(81 162 255)" });
+
+    /* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
+    initAligningGuidelines(this.canvas, { color: "rgb(81 162 255)" });
+    /* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
+
+    /* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
+    const COUNT = 20;
+    const frontendTickDelayArray: number[] = [];
+    let sent = 0;
+
+    this.timeline.addEventListener("onUpdate", async (time) => {
+      this.seekShapes(time);
+
+      // only notify frontend if tickDelay
+      const hasCalculatedAverageDelay = this.#frontendTickDelay !== undefined;
+      const shouldNotifyFrontend = hasCalculatedAverageDelay && time < this.#nextFrontendTickTime;
+      // if (time >= this.timeline.duration || this.#nextFrontendTickTime >= this.timeline.duration) {
+      //   this.#nextFrontendTickTime = 0;
+      // }
+
+      if (!hasCalculatedAverageDelay && frontendTickDelayArray.length === COUNT) {
+        const average =
+          frontendTickDelayArray.reduce((prev, acc) => prev + acc, 0) /
+          frontendTickDelayArray.length;
+        this.#frontendTickDelay = average * 0.5;
+        sent = 0;
+      }
+
+      if (shouldNotifyFrontend || sent === COUNT) return;
+
+      const _nextTick = time + (this.#frontendTickDelay || 0);
+      this.#nextFrontendTickTime = _nextTick;
+      const timeSent = Date.now();
+      if (!this.#frontendTickDelay) sent++;
+      this.frontEndCallBack?.["timeline:update"]?.(
+        time,
+        proxy(async (timeReceived: number) => {
+          const diff = (timeReceived - timeSent) / 1000;
+          if (!this.#frontendTickDelay) {
+            frontendTickDelayArray.push(diff);
+          }
+        }),
+        this.timeline.isPlaying,
+      );
+    });
+    this.timeline.addEventListener("onComplete", async (time) => {
+      this.#nextFrontendTickTime = 0;
+    });
+
+    /* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
   }
 
   set selectedShapes(ids: string[]) {
@@ -227,6 +276,9 @@ export class MotionEditor {
     this.render();
   }
 
+  /**
+   * Callback function for when a shape is scaled.
+   */
   private onObjectScale(e: TransformEvent) {
     const keyframes: Parameters<typeof this.addKeyFrame> = [];
     this.selectedShapes?.forEach((id) => {
@@ -251,11 +303,10 @@ export class MotionEditor {
       const newWidth = shape.scaleX * shape.width;
       const newHeight = shape.scaleY * shape.height;
       this.frontEndCallBack?.["object:scaling"]?.(id, newWidth, newHeight);
-      console.log(newWidth);
 
       keyframes.push([
         id,
-        this.time,
+        this.timeline.time,
         {
           width: newWidth,
           height: newHeight,
@@ -273,6 +324,9 @@ export class MotionEditor {
     this.debouncedAddKeyframe(...keyframes);
   }
 
+  /**
+   * Callback function for when a shape is moved.
+   */
   private onObjectMove(e: TransformEvent) {
     const keyframes: Parameters<typeof this.addKeyFrame> = [];
     const selectedShapes = this.canvas.getActiveObjects();
@@ -283,17 +337,19 @@ export class MotionEditor {
       setTimeout(() => {
         const { x, y } = i.getXY();
         this.frontEndCallBack?.["object:moving"]?.(shapeId, x, y);
-        keyframes.push([shapeId, this.time, { left: x, top: y }]);
+        keyframes.push([shapeId, this.timeline.time, { left: x, top: y }]);
         if (index === selectedShapes.length - 1) {
           this.debouncedAddKeyframe(...keyframes);
         }
       }, 250);
     });
   }
+  /**
+   * Callback function for when a shape is rotated.
+   */
 
   private onObjectRotate(e: TransformEvent) {
     let objects: FabricObject[] = [];
-    console.log(e);
     if ("_objects" in e.target) {
       objects = e.target._objects as FabricObject[];
     } else {
@@ -313,17 +369,23 @@ export class MotionEditor {
         additionalProperties = { left: x, top: y };
       }
 
-      keyframes.push([shapeId, this.time, { angle: e.target.angle, ...additionalProperties }]);
+      keyframes.push([
+        shapeId,
+        this.timeline.time,
+        { angle: e.target.angle, ...additionalProperties },
+      ]);
     });
 
     this.debouncedAddKeyframe(...keyframes);
   }
 
+  /**
+   * Callback function for when a mouse is over a shape.
+   */
   private onObjectMouseOver(e: TPointerEventInfo<TPointerEvent>) {
-    if (this.isPlaying) return;
+    if (this.timeline.isPlaying) return;
     if (e.target) {
       const isActive = this.selectedShapes?.includes(e.target.id || "");
-      console.log({ a: this.selectedShapes, t: e.target });
 
       const isMultipleItemsSelcted = this.selectedShapes.length > 1;
       if (isActive || isMultipleItemsSelcted) return;
@@ -369,21 +431,8 @@ export class MotionEditor {
         this.frontEndCallBack[args[0]] = args[1];
         break;
       case "timeline:update":
-        {
-          const originalFunc = args[1];
-          let isLocked = false;
-          this.frontEndCallBack[args[0]] = (time) => {
-            if (isLocked) return;
-            isLocked = true;
+        this.frontEndCallBack[args[0]] = args[1];
 
-            originalFunc?.(
-              time,
-              proxy((timestamp: number) => {
-                isLocked = false;
-              }),
-            );
-          };
-        }
         break;
       case "registerFont":
         this.frontEndCallBack[args[0]] = args[1];
@@ -394,11 +443,26 @@ export class MotionEditor {
       case "keyframe:delete":
         this.frontEndCallBack[args[0]] = args[1];
         break;
+      case "onDeleteObject":
+        this.frontEndCallBack[args[0]] = args[1];
+        break;
+
       default: {
         const key = args[0];
         this.frontEndCallBack[key] = args[1];
       }
     }
+  }
+
+  /**
+   * Stores frontend functions that can be called from a web worker
+   */
+  registerFrontendFunctions<Type extends keyof MainThreadFunctions>(
+    type: Type,
+    func: MainThreadFunctions[Type],
+  ) {
+    // @ts-expect-error function needs to be a promise due to how comlink works
+    this.#frontendFunctions[type] = func;
   }
   handleMouseCallback(type: keyof HTMLElementEventMap, data: TPointerEvent) {
     if (type === "mouseup") {
@@ -406,7 +470,7 @@ export class MotionEditor {
       return;
     }
     if (type === "mousedown") {
-      console.log("hello");
+      //
     }
     MotionEditor.fabricUpperCanvasEventListenersCallback[type]?.(data);
     this.canvas.renderAll();
@@ -466,7 +530,7 @@ export class MotionEditor {
   async createShape(args: CreateShapeArgs) {
     let shape: FabricObject | null = null;
     const id = crypto.randomUUID();
-    const defaultFill = "skyblue";
+    const defaultFill = "rgba(0,0,0,0.5)";
     const defaultStroke = "black";
 
     switch (args.type) {
@@ -582,6 +646,7 @@ export class MotionEditor {
   }
 
   getShapeCoordinatesByID(id: string) {
+    if (this.timeline.isPlaying) return;
     const shape = this.shapeRecord.get(id)?.fabricObject;
     if (shape) {
       return getShapeCoordinates(shape);
@@ -657,59 +722,50 @@ export class MotionEditor {
         });
         if (!keyframeDetails) return;
 
-        this.frontEndCallBack["keyframe:add"]?.(
+        this.frontEndCallBack["keyframe:add"]<keyof AnimatableProperties>?.(
           shapeId,
           time,
           keyframeDetails,
-          animatableProperty,
-          value,
+          // Todo: figure out how to fix TS error without type casting
+          animatableProperty as "height",
+          value as number,
         );
       });
     });
   }
 
   onMouseUp() {}
+  togglePlay() {
+    if (this.timeline.isPlaying) {
+      this.pause();
+    } else {
+      this.play();
+    }
+  }
   async play() {
-    this.isPlaying = true;
-    this.lastTime = performance.now();
-    requestAnimationFrame(this.startPlayingLoop.bind(this));
+    this.#nextFrontendTickTime = 0;
+    this.timeline.play();
   }
-  startPlayingLoop(now: number) {
-    if (!this.isPlaying) return;
-
-    this.callBackIds.animationFrameCallbackId = requestAnimationFrame(
-      this.startPlayingLoop.bind(this),
-    );
-
-    if (this.lastTime == null) {
-      this.lastTime = now;
-    }
-
-    const dt = (now - this.lastTime) / 1000;
-    this.lastTime = now;
-
-    this.time += dt;
-
-    this.seek(this.time);
-    this.frontEndCallBack?.["timeline:update"]?.(this.time);
-
-    if (this.time >= 10) {
-      this.time = 0;
-    }
+  get time() {
+    return this.timeline.time;
   }
+
   pause() {
-    this.isPlaying = false;
-    cancelAnimationFrame(this.callBackIds.animationFrameCallbackId);
-    this.lastTime = null;
+    this.#nextFrontendTickTime = 0;
+    if (this.timeline.isPlaying) this.frontEndCallBack?.["timeline:update"]?.(this.timeline.time);
+    this.timeline.pause();
     this.reselectShape?.();
   }
-  seek(time: number) {
+  seekShapes(time: number) {
     const selectedShape = this.canvas.getActiveObjects();
-
     if (selectedShape.length > 0) {
       this.canvas.discardActiveObject();
       this.reselectShape = () => {
-        const selection = new ActiveSelection([], { canvas: this.canvas });
+        const selection = new ActiveSelection([], {
+          canvas: this.canvas,
+          // this ensures that for single selected items, the canvas selection callbacks have the id property
+          id: selectedShape.length == 1 ? selectedShape?.[0]?.id : undefined,
+        });
         selection.multiSelectAdd(...selectedShape);
         this.canvas._hoveredTarget = selection;
         this.canvas.setActiveObject(selection);
@@ -722,14 +778,74 @@ export class MotionEditor {
     this.shapeRecord.forEach((shape) => {
       shape.seek(_time);
     });
-    if (!this.isPlaying) {
-      this.time = _time;
+    if (!this.timeline.isPlaying) {
       this.shapeRecord.forEach((value) => {
         value.fabricObject.setCoords();
       });
       this.reselectShape?.();
     }
     this.canvas.renderAll();
+  }
+  seekPlayHead(time: number) {
+    this.pause();
+    this.seekShapes(time);
+    this.timeline.setTime(time, true);
+  }
+  async exportToVideo(onUpdate?: (progress: number) => void) {
+    const videoWidth = 4096;
+    const videoHeight = 2160;
+    const offscreenCanvas = new OffscreenCanvas(videoWidth, videoHeight);
+    addPropertiesToCanvas(offscreenCanvas as OffscreenCanvas, videoWidth, videoHeight);
+    //
+    this.shapeRecord.forEach((shape) => {
+      const g = shape.fabricObject.clone();
+    });
+    const canvas = new StaticCanvas(offscreenCanvas as unknown as HTMLCanvasElement);
+    //
+    const output = new Output({
+      target: new BufferTarget(), // Stored in memory
+      format: new Mp4OutputFormat({}),
+    });
+    const videoCodec = await getFirstEncodableVideoCodec(output.format.getSupportedVideoCodecs(), {
+      width: videoWidth,
+      height: videoHeight,
+    });
+    if (!videoCodec) return;
+    const canvasSource = new CanvasSource(offscreenCanvas, {
+      codec: videoCodec,
+      bitrate: QUALITY_VERY_HIGH,
+    });
+    const frameRate = 100;
+    output.addVideoTrack(canvasSource, { frameRate });
+    await output.start();
+    const TOTAL_DURATION = 10; // seconds
+    const totalFrames = frameRate * TOTAL_DURATION;
+    const rect = new Rect({
+      fill: "red",
+      width: videoWidth * 0.2,
+      height: videoHeight * 0.2,
+      left: 0,
+      top: 0,
+      objectCaching: false,
+    });
+    canvas.add(rect);
+    canvas.renderAll();
+
+    for (let i = 1; i < totalFrames; i++) {
+      rect.top = i;
+      rect.left = i;
+      canvas.renderAll();
+      await canvasSource.add((i / totalFrames) * TOTAL_DURATION, 1 / frameRate);
+      const progress = i / totalFrames;
+      onUpdate?.(progress);
+    }
+    canvasSource.close();
+    await output.finalize();
+    const videoBlob = new Blob([output.target.buffer!], {
+      type: output.format.mimeType,
+    });
+    const resultVideo = URL.createObjectURL(videoBlob);
+    return resultVideo;
   }
 
   static async loadFont() {
@@ -749,4 +865,110 @@ export class MotionEditor {
       console.log({ error });
     }
   }
+}
+
+type TimeLineCallback = {
+  onUpdate?: ((time: number) => void)[];
+  onPlay?: ((time: number) => void)[];
+  onPause?: ((time: number) => void)[];
+  onComplete?: ((time: number) => void)[];
+};
+class Timeline {
+  #lastTime: null | number = null;
+  #time = 0;
+  #callback: TimeLineCallback = {};
+  #animationFrameCallbackId = 0;
+
+  isPlaying = false;
+
+  constructor(
+    public duration = 10,
+    public shouldLoop = false,
+  ) {}
+
+  get time() {
+    return this.#time;
+  }
+  setTime(t: number, shouldAlert?: boolean) {
+    this.#time = t;
+    if (shouldAlert) {
+      this.#callback?.onUpdate?.forEach((func) => {
+        func(this.#time);
+      });
+    }
+  }
+
+  play() {
+    this.isPlaying = true;
+    this.#lastTime = performance.now();
+    this.#callback.onPlay?.forEach((func) => func(this.#time));
+    requestAnimationFrame(this.#loop.bind(this));
+  }
+  pause() {
+    this.isPlaying = false;
+    cancelAnimationFrame(this.#animationFrameCallbackId);
+    this.#callback.onPause?.forEach((func) => func(this.#time));
+    this.#lastTime = null;
+  }
+
+  #loop(now: number) {
+    if (!this.isPlaying) return;
+
+    this.#animationFrameCallbackId = requestAnimationFrame(this.#loop.bind(this));
+
+    if (this.#lastTime == null) {
+      this.#lastTime = now;
+    }
+
+    const dt = Math.max(0, now - this.#lastTime) / 1000;
+    this.#lastTime = now;
+
+    const _time = Math.min(this.duration, this.#time + dt);
+    this.setTime(_time, true);
+
+    const isComplete = this.#time >= this.duration;
+
+    if (isComplete) {
+      this.#callback?.onComplete?.forEach((func) => {
+        func(this.#time);
+      });
+      if (this.shouldLoop) {
+        this.setTime(0, true);
+      } else {
+        this.pause();
+      }
+    }
+  }
+  addEventListener(type: keyof TimeLineCallback, func: (time: number) => void) {
+    if (!this.#callback?.[type]) {
+      this.#callback[type] = [];
+    }
+    this.#callback[type].push(func);
+  }
+}
+function addCustomControls() {
+  const controls = controlsUtils.createObjectDefaultControls();
+  controls.mr.sizeX = controls.ml.sizeX = 5;
+  controls.mr.sizeY = controls.ml.sizeY = 20;
+  controls.mt.sizeY = controls.mb.sizeY = 5;
+  controls.mt.sizeX = controls.mb.sizeX = 20;
+
+  // Styles default controls
+  InteractiveFabricObject.ownDefaults.originX = "center";
+  InteractiveFabricObject.ownDefaults.originY = "center";
+  InteractiveFabricObject.ownDefaults.strokeUniform = true;
+  InteractiveFabricObject.ownDefaults = {
+    ...InteractiveFabricObject.ownDefaults,
+    cornerStrokeColor: "rgb(81 162 255)",
+    cornerColor: "rgb(255 255 255)",
+    cornerSize: 8,
+    padding: 0,
+    transparentCorners: false,
+    borderColor: "rgb(81 162 255)",
+    borderScaleFactor: 1.05,
+    borderOpacityWhenMoving: 1,
+    controls: {
+      ...controls,
+    },
+  };
 }

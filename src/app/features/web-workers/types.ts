@@ -47,6 +47,7 @@ export interface IOffscreenRenderer {
   ) => void;
 }
 
+/**Callbacks for when things happen on the worker thread */
 export type FrontendCallback = {
   getBoundingClientRect: () => DOMRect | undefined;
   updateCursor: (e: string) => void;
@@ -55,7 +56,12 @@ export type FrontendCallback = {
   highlightShape: (width: number, height: number, top: number, left: number, angle: number) => void;
   clearShapeHighlight: () => void;
   registerFont: (name: string, url: string) => void;
-  "timeline:update": (time: number, onHandle?: (timeStamp: number) => void) => void;
+  "timeline:update": (
+    time: number,
+    onHandle?: (timeStamp: number) => void,
+    isPlaying?: boolean,
+  ) => void;
+  "timeline:state": () => void;
   "keyframe:add": <P extends keyof AnimatableProperties>(
     id: string,
     time: number,
@@ -72,6 +78,10 @@ export type FrontendCallback = {
   "object:scaling": (id: string, width: number, height: number) => void;
   "object:rotating": (id: string, angle: number) => void;
   "object:moving": (id: string, left: number, top: number) => void;
+};
+
+export type MainThreadFunctions = {
+  getFrontEndTimelineTime: () => number;
 };
 
 export type FilteredMouseEvent = Pick<

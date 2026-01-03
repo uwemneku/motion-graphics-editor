@@ -1,12 +1,24 @@
 # Notes
 
-3/12/2024
+21/12/2025
+
+- I think maybe there are too many functions in [app.ts]("./src/app/features/web-workers/app.ts")
+- Updated readme log dates to 2025. (Mentally I still think its 2024)
+
+11/12/2025
+
+- Improved custom timeline logic.
+  - Added custom easing function gotten from <https://easings.net/>
+  - Following the sample [code here](https://stackoverflow.com/questions/19764018/controlling-fps-with-requestanimationframe), moved the recursion call of requestAnimationFrame to the top of the loop function and I think that improved the playback.
+  - I need to figure out a way to better throttle the timeline onUpdate callback which informs the frontend when the timeline playhead moves. On slow devices this lags greatly
+
+3/12/2025
 
 - Made good progress with custom keyframe/timeline logic but haven't figure out the bug that makes playback look weird. My guess it that the time  iteration might be too much (The logic iterates as fast as the computer can handle). I tried with gsap and it's much better and the movement is very smooth. Made an attempt to include a frame rate (24 fps) to my custom timeline logic but still get a weird playback animation.
 - Good progress with vitest but it seems jsdom does not provide implement the OffscreenCanvas API. Should look at the docs later. I really hope they do, willing to give sacrifices to the Gods to avoid running a test in an actual browser.
 - Might have to give up my initial goal og doing everything from a webworker. Things would be way easier. Maybe.
 
-29/11/2024
+29/11/2025
 
 - Key frame logic
 - Trying to decide how much data should live in the main thread.
@@ -14,24 +26,24 @@
 - Currently carrying out animation based on the framerate that `requestAnimationFrame` allows but this might not be the best approach for procedural video generation.
 - I'll merge the fabric branch to the main branch. I think Fabric.js would be able to achieve most basic functionalities. Maybe would try using three.js to do 2.5d later on to achieve something similar to Moho.
 
-13/11/2024
+13/11/2025
 
 - Added polyfill in worker to make it possible for fabric.js to control upper-canvas from web worker
 - Tried to do origin aware rotation but was not successful. The api to change a fabric object origin is supposed to be by modifying the `originX` and `originY` property, but they are marked as deprecated. The major challenge here was figuring out the math of the position of a rotated object whose origin has been changed. For now, a simpler solution was setting the origin fo all objects to the center. This made it easier to calculate where to place the blue highlight border when an object is hovered even if said object is rotated.
 - Tried using polyfills to make canvas text editing work from web webworker but that might not be worth it. I found a good use of textArea [here](https://www.framezero.app/edit). I think I should follow this pattern
 - Huge shout to Alessia Cara for the deluxe version of [her new album](https://music.apple.com/ng/album/love-hyperbole-deluxe/1846833534). Great soundtrack for figuring things out and simultaneously thinking, "did she just curse that boy out in track two ?".
 
-10/11/2024
+10/11/2025
 
 - Improved type definitions for the app to improve communication between worker and main thread
 - Better UI design. (Not sure timeline should always be hidden when we switch to design mode)
 - New timeline logic.
 
-3/11/2024
+3/11/2025
 
 - After translating objects from a worker, fabricObject.setCoords() needs to be called to update the event hitbox
 
-31/10/2024
+31/10/2025
 
 - Trying to use fabric JS with offscreen canvas in a worker.
 - With fabric Js, due to the custom polyfill on the worker side to make it work, having a pixel ratio greater than 1 was resizing the canvas instead of increasing canvas quality. The fix was
@@ -48,7 +60,7 @@ When device pixel is greater than one, calculations need to be make to mouse eve
 - Trying out three js and offscreen canvas, tricky part is trying to handle custom transformer.
 
 <hr />
-01/10/24
+01/10/25
 - Trying resizing instead of scaling
 
 - Was having issues where videos generated with a worker looked very pixelated, turns out it was because the  [pixelRatio](https://konvajs.org/api/Konva.Canvas.html#getPixelRatio) on the main thread is 2 but on a worker it had a value of 1.
@@ -59,7 +71,7 @@ To get the same quality from the worker thread, I had to set the pixelRatio to t
 - Took a look at [motionity](https://www.motionity.app/) and it's pretty cool, I tried to replicate the masking feature with knova but failed. I might switch and use Fabric .
 
 <hr />
-24/09/2024
+24/09/2025
 - Decoding an svg image directly from the blob could lead to  issues.
 
   ```ts
@@ -78,20 +90,20 @@ To get the same quality from the worker thread, I had to set the pixelRatio to t
 
 <hr />
 
-23/09/2024
+23/09/2025
 
 - Tried out [comlink](https://github.com/GoogleChromeLabs/comlink) for web workers and it really simplified things.
 
 <hr />
 
-22/09/2024
+22/09/2025
 
 - Tried offloading video export to a web worker [(sample script)](https://gist.github.com/uwemneku/53da519d8f602098c9fb7dacba53a672). The resulting video had a very low quality. Turns out the dimensions were the issue, doubling the width and height of the stage fixed the issue.
 This means I might be able to export videos in parallel.
 
 <hr />
 
-21/09/2024
+21/09/2025
 
 - Did some experiments to try and find a good video export strategy.
   - Had severe video lagging issues when I tired to export video frames directly from the displayed canvas
@@ -107,7 +119,7 @@ This means I might be able to export videos in parallel.
 
 <hr />
 
-16/09/2024
+16/09/2025
 
 - Added support for importing images
 - Updated canvas design
@@ -115,7 +127,7 @@ This means I might be able to export videos in parallel.
 
 <hr />
 
-14/09/2024
+14/09/2025
 
 - Switched from recreating timeline for every keyframe to adjusting the timeline dynamically. This caused a bug where after the second keyframe, gsap would jump to the next keyframe without any animation
 
@@ -140,7 +152,7 @@ This means I might be able to export videos in parallel.
         ```
 
 <hr />
-12/09/2024
+12/09/2025
 
 - For some reason when interpolation a color with gsap, when the initial color is a string, Nan is attached to the end
 

@@ -1,4 +1,5 @@
-import { useAppSelector } from "@/app/store";
+import { dispatchableSelector, useAppDispatch, useAppSelector } from "@/app/store";
+import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useCanvasWorkerContext } from "../canvas/useCanvasContext";
 import LayersSideMenu from "../layers";
@@ -43,7 +44,9 @@ function FloatingTimeline() {
 function TimelineTimeStampHeader() {
   const canvasContext = useCanvasWorkerContext();
   const timelineHeaderRef = useRef<HTMLDivElement>(null);
-  const [duration, setDuration] = useState(10);
+  const [duration] = useState(10);
+  const dispatch = useAppDispatch();
+  const isPaused = useAppSelector((e) => e.timeline.isPaused);
   const timelineCurrentTime = useAppSelector((e) => e.timeline.currentTime);
   const [width, setWidth] = useState<number>(0);
   const isMouseDown = useRef(false);
@@ -64,9 +67,9 @@ function TimelineTimeStampHeader() {
     isMouseDown.current = false;
   }, []);
   const movePlayhead = async (time: number) => {
-    const _time = await canvasContext.app?.time;
-    if (time === _time) return;
-    trackDiv.current?.style.setProperty("transition", "left 0.5s");
+    const worker_time = dispatch(dispatchableSelector((e) => e.timeline.currentTime));
+    if (time === worker_time) return;
+    trackDiv.current?.style.setProperty("transition", "left 0.125s");
     canvasContext.seekTimeLine(time);
   };
 
@@ -152,7 +155,7 @@ function TimelineTimeStampHeader() {
         <div className="relative z-10 flex h-full items-end">
           <div className="flex w-full flex-1">
             {new Array(duration).fill("").map((_, index) => (
-              <div className="flex-1">
+              <div className="flex-1" key={index}>
                 <Time
                   onClick={() => {
                     movePlayhead(index);
@@ -186,7 +189,6 @@ const Time = (props: { time: number; onClick(): void }) => {
         e.stopPropagation();
         e.preventDefault();
         props.onClick();
-        console.log("hello___");
       }}
     >
       {props.time}
@@ -216,19 +218,23 @@ const KeyFrames = (props: { id: string }) => {
         if (shouldHide) return null;
         return (
           <div
-            className="flex"
+            className="flex min-h-5 items-center bg-blue-100"
             data-animatable_property={animatableProperty}
             key={animatableProperty}
           >
             {shapeKeyFrames?.[animatableProperty]?.map((i, index) => (
-              <div
+              <motion.div
                 className=""
+                drag="x"
+                dragElastic={0}
+                dragMomentum={false}
+                whileDrag={"drag"}
                 style={{
                   transform: `translateY(0px) translateX(calc(-50% + 1px - ${index * 12}px + (var(--timeline-width) * ${i.time / TOTAL_TIMELINE})))`,
                 }}
               >
-                <div className="size-3 rotate-45 border border-gray-300 bg-gray-200 hover:border-blue-300 hover:bg-blue-200" />
-              </div>
+                <motion.div className="size-2.5 rotate-45 border border-gray-300 bg-gray-200 hover:size-3 hover:border-blue-300 hover:bg-blue-200" />
+              </motion.div>
             ))}
           </div>
         );

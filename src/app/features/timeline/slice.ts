@@ -11,6 +11,7 @@ export interface TimelineState {
 const initialState: TimelineState = {
   currentTime: 0,
   keyFrames: {},
+  isPaused: true,
 };
 
 export const timelineSlice = createSlice({
