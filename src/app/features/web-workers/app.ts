@@ -454,10 +454,14 @@ export class MotionEditor {
     }
   }
 
+  /**
+   * Stores frontend functions that can be called from a web worker
+   */
   registerFrontendFunctions<Type extends keyof MainThreadFunctions>(
     type: Type,
     func: MainThreadFunctions[Type],
   ) {
+    // @ts-expect-error function needs to be a promise due to how comlink works
     this.#frontendFunctions[type] = func;
   }
   handleMouseCallback(type: keyof HTMLElementEventMap, data: TPointerEvent) {
@@ -722,8 +726,9 @@ export class MotionEditor {
           shapeId,
           time,
           keyframeDetails,
-          animatableProperty,
-          value,
+          // Todo: figure out how to fix TS error without type casting
+          animatableProperty as "height",
+          value as number,
         );
       });
     });
