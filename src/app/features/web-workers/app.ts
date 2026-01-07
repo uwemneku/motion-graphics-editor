@@ -792,15 +792,20 @@ export class MotionEditor {
     this.timeline.setTime(time, true);
   }
   async exportToVideo(onUpdate?: (progress: number) => void) {
-    const videoWidth = 4096;
-    const videoHeight = 2160;
+    const videoWidth = Math.floor(this.clipRect.width);
+    const videoHeight = Math.floor(this.clipRect.height);
     const offscreenCanvas = new OffscreenCanvas(videoWidth, videoHeight);
     addPropertiesToCanvas(offscreenCanvas as OffscreenCanvas, videoWidth, videoHeight);
     //
-    this.shapeRecord.forEach((shape) => {
-      const g = shape.fabricObject.clone();
+    const canvas = new StaticCanvas(offscreenCanvas as unknown as HTMLCanvasElement, {
+      backgroundColor: "white",
     });
-    const canvas = new StaticCanvas(offscreenCanvas as unknown as HTMLCanvasElement);
+    this.shapeRecord.forEach(async (shape) => {
+      const g = await shape.fabricObject.clone();
+      const __j = new AnimatableObject(g, shape.keyframes);
+      __j.seek(0);
+      canvas.add(__j.fabricObject);
+    });
     //
     const output = new Output({
       target: new BufferTarget(), // Stored in memory
@@ -841,7 +846,8 @@ export class MotionEditor {
     }
     canvasSource.close();
     await output.finalize();
-    const videoBlob = new Blob([output.target.buffer!], {
+    if (!output.target.buffer) return;
+    const videoBlob = new Blob([output.target.buffer], {
       type: output.format.mimeType,
     });
     const resultVideo = URL.createObjectURL(videoBlob);

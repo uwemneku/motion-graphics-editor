@@ -12,6 +12,7 @@ export type AnimatableProperties = {
   angle: number;
   rx: number;
   ry: number;
+  /** [r, g, b, a] */
   fill: [number, number, number, number];
   //   clipPath: string;
 };
@@ -42,13 +43,20 @@ export class AnimatableObject {
     "fill",
   ];
   // Should this be private?
-  keyframes: { [key in keyof AnimatableProperties]?: Keyframe<key>[] } = {};
+  // keyframes: { [key in keyof AnimatableProperties]?: Keyframe<key>[] } = {};
   private cache: Partial<Record<keyof AnimatableProperties, AnimatableObjectCache>> = {};
 
-  constructor(public fabricObject: FabricObject) {
-    this.freezeProperties(0);
-    this.addKeyframe({ property: "fill", easing: "", time: 3, value: [0, 200, 200, 1] });
-    this.addKeyframe({ property: "fill", easing: "", time: 8, value: [255, 9, 50, 0.2] });
+  constructor(
+    public fabricObject: FabricObject,
+    public keyframes: { [key in keyof AnimatableProperties]?: Keyframe<key>[] } = {},
+  ) {
+    if (!keyframes) {
+      this.freezeProperties(0);
+      this.addKeyframe({ property: "fill", easing: "", time: 3, value: [0, 200, 200, 1] });
+      this.addKeyframe({ property: "fill", easing: "", time: 8, value: [255, 9, 50, 0.2] });
+      return;
+    }
+    this.seek(0);
   }
 
   freezeProperties(time: number) {
@@ -160,6 +168,7 @@ export class AnimatableObject {
       );
 
       if (isBackground(keyFrameAtIndex) && isBackground(prevKeyFrame)) {
+        // rgba format
         const value = keyFrameAtIndex.value.map((v, i) => {
           const prev = prevKeyFrame.value[i];
           const deltaValue = v - prev;

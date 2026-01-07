@@ -81,16 +81,18 @@ export default function AppLayout() {
 
       {/* TIMELINE FOOTER */}
       <div
-        ref={shapesRef}
-        className="absolute bottom-0 left-1/2 z-50 flex -translate-x-1/2 -translate-y-(--offset) items-center rounded-xl border-2 border-gray-300 bg-white"
-      >
-        <ShapePicker initiMode={initMode} onModeSwitch={onEditorModeSwithc} />
-      </div>
-      <div
-        className={`p-x-2 drop absolute bottom-0 left-0 z-10 z-50 flex max-h-[200px] w-full -translate-y-(--timeline-offset) flex-col border-t border-t-gray-300`}
+        className={`absolute bottom-0 left-0 z-50 flex w-full -translate-y-(--timeline-offset) flex-col`}
         ref={timelineRef}
       >
-        <FloatingTimeline />
+        <div
+          ref={shapesRef}
+          className="bottom-0 left-1/2 z-50 mx-auto mb-3 flex w-fit items-center rounded-xl border-2 border-gray-300 bg-white"
+        >
+          <ShapePicker initiMode={initMode} onModeSwitch={onEditorModeSwithc} />
+        </div>
+        <div className="p-x-2 drop max-h-[200px] border-t border-t-gray-300">
+          <FloatingTimeline />
+        </div>
       </div>
     </div>
   );
